@@ -1,13 +1,79 @@
 #!/usr/bin/perl -w
 
-=begin doc
 
-  This is a mail filtering program.  It is not really documented
- yet.
+=head1 NAME
 
-=end doc
+sift - A scriptable IMAP utility program.
 
 =cut
+
+
+=head1 ABOUT
+
+  sift is an IMAP client utility which allows you to manipulate
+ a remote mailbox via a collection of simple rules.
+
+  The program has a number of built in primitives for selecting
+ messages from the remote mailbox, and for performing simple
+ actions upon them.
+
+  For selection you may:
+
+=over 8
+
+=item Search based on flags ("new" vs. "read")
+
+=item Search based on message senders.
+
+=item Search based on message subjects.
+
+=item Search based on message bodies.
+
+=back
+
+
+  Once you have selected a number of messages you may do a couple of
+ different things:
+
+
+=over 8
+
+=item Move messages into a new folder.
+
+=item Delete messages
+
+=item Change flags ("new" vs. "read")
+
+=item Execute programs with the message bodies as input.
+
+=back
+
+
+  It is designed to be simple to understand and use, but it might not
+ be flexible enough for complex cases.
+
+=cut
+
+
+=head1 AUTHOR
+
+ Steve
+ --
+ http://www.steve.org.uk/
+
+=cut
+
+=head1 LICENSE
+
+Copyright (c) 2008 by Steve Kemp.  All rights reserved.
+
+This module is free software;
+you can redistribute it and/or modify it under
+the same terms as Perl itself.
+The LICENSE file contains the full text of the license.
+
+=cut
+
 
 
 use strict;
@@ -15,6 +81,7 @@ use warnings;
 use File::Temp qw/ tempfile /;
 use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
+
 
 
 #
