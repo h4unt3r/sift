@@ -1,0 +1,544 @@
+#!/usr/bin/perl -w
+
+=begin doc
+
+  This is a mail filtering program.  It is not really documented
+ yet.
+
+=end doc
+
+=cut
+
+
+use strict;
+use warnings;
+use File::Temp qw/ tempfile /;
+use Net::IMAP::Simple;
+use Net::IMAP::Simple::SSL;
+
+
+#
+#  Get the file to read
+#
+my $filename = shift;
+
+if ( !defined($filename) )
+{
+    print "Usage: $0 filename\n";
+    exit;
+}
+if ( !-e $filename )
+{
+    print "File not found: $filename\n";
+}
+
+
+
+my ( $username, $password ) = findLogin($filename);
+
+
+#
+#  Login
+#
+my $imap = login( $username, $password );
+
+
+
+#
+#  Now process each rule.
+#
+processRules($filename);
+
+
+#
+#  All done.
+#
+$imap->quit();
+exit;
+
+
+
+=begin doc
+
+  Find login details from our configuration file.
+
+=end doc
+
+=cut
+
+sub findLogin
+{
+    my ($file) = (@_);
+
+    open( INPUT, "<", $file )
+      or die "failed to read $file - $!";
+
+    my $u;
+    my $p;
+
+    while ( my $line = <INPUT> )
+    {
+        next if ( !$line );
+        chomp($line);
+
+        if ( $line =~ /username:(.*)/ )
+        {
+            $u = $1;
+        }
+        if ( $line =~ /password:(.*)/i )
+        {
+            $p = $1;
+        }
+    }
+    close(INPUT);
+
+    $u =~ s/^\s+//;
+    $u =~ s/\s+$//;
+    $p =~ s/^\s+//;
+    $p =~ s/\s+$//;
+
+    return ( $u, $p );
+}
+
+
+
+=begin doc
+
+  Login to the remote server.
+
+=end doc
+
+=cut
+
+sub login
+{
+    my ( $user, $pass ) = (@_);
+
+
+    #
+    #  Connect
+    #
+    my $imap = Net::IMAP::Simple::SSL->new('imap.gmail.com')
+      or die "Unable to connect to IMAP server.\n";
+
+
+    #
+    # Login
+    #
+    $imap->login( $user, $pass )
+      or die "Login failed :" . $imap->errstr . "\n";
+
+    return ($imap);
+}
+
+
+
+=begin doc
+
+
+  Proces the rules contained in the given configuration file.
+
+=end doc
+
+=cut
+
+sub processRules
+{
+    my ($file) = (@_);
+
+    open( INP, "<", $file )
+      or die "failed to read : $file - $!";
+
+    while ( my $line = <INP> )
+    {
+
+        # skip empty lines and comments.
+        next if ( !$line );
+        next if ( $line =~ /^#/ );
+
+        # look for lines starting with 'folder'
+        next if ( $line !~ /^folder/ );
+
+
+        #
+        #  The stack of messages we'll work with.
+        #
+        my @messages;
+
+        #
+        #  The count of messages in the current folder.
+        #
+        my $count;
+
+        foreach my $token ( split( / /, $line ) )
+        {
+
+            #
+            #  Change folder.  Mark all messages as current.
+            #
+            if ( $token =~ /folder:(.*)/i )
+            {
+                my $folder = $1;
+                print "\n\n";
+                print "Selecting folder: $folder\n";
+                $count = $imap->select($folder);
+                if ( !$count )
+                {
+                    print "Selecting folder failed\n";
+                    next;
+                }
+                print "Count of messages: $count\n";
+                foreach my $id ( 1 .. $count )
+                {
+                    push( @messages, $id );
+                }
+                print "done\n";
+            }
+            elsif ( $token =~ /status:(.*)/i )
+            {
+
+                #
+                #  Update current stack of messages to only
+                # be those that are of the given status.
+                #
+                my $status = $1;
+                if ( $status =~ /new/i )
+                {
+                    print "Finding messages which are new\n";
+                    @messages = findUnread($count);
+                    print "Done\n";
+                }
+                if ( $status =~ /old/i )
+                {
+                    print "Finding messages which have been read\n";
+                    @messages = findRead($count);
+                    print "Done\n";
+                }
+            }
+            elsif ( $token =~ /mark:(.*)/i )
+            {
+
+                #
+                #  Mark all the currently selected messages as either
+                # "new" or "read".
+                #
+                my $state = $1;
+                if ( $state =~ /^read$/i )
+                {
+                    print "Marking as read\n";
+                    foreach my $id (@messages)
+                    {
+                        print "Msg: $id\n";
+                        $imap->_process_cmd(
+                                      cmd => [STORE => qq[$id +FLAGS (\\Seen)]],
+                                      final   => sub {1},
+                                      process => sub { },
+                        );
+                    }
+
+                    print "Done\n";
+                }
+                if ( $state =~ /^unread$/i )
+                {
+                    print "Marking as unread\n";
+                    foreach my $id (@messages)
+                    {
+                        print "Msg: $id\n";
+                        $imap->_process_cmd(
+                               cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
+                               final   => sub {1},
+                               process => sub { },
+                        );
+                    }
+
+                    print "Done\n";
+                }
+            }
+            elsif ( $token =~ /subject:(.*)/i )
+            {
+
+                #
+                #  Filter all current messages to remove those that
+                # don't match the given subject string.
+                #
+                my $subject = $1;
+                print "Looking for $subject in subject\n";
+
+                my @matches;
+
+                foreach my $id (@messages)
+                {
+                    print "Testing message: $id\n";
+                    my $msg = $imap->get($id);
+
+                    if ($msg)
+                    {
+                        my $found = 0;
+
+                        foreach my $line (@$msg)
+                        {
+                            next if ($found);
+
+                            if (    ( $line =~ /^Subject:/ )
+                                 && ( $line =~ /\Q$subject\E/i )
+                                 && ( !$found ) )
+                            {
+                                push( @matches, $id );
+                                print "\tmatch: found\n";
+                                $found += 1;
+                            }
+                        }
+                    }
+                }
+                @messages = @matches;
+                print "Done\n";
+            }
+            elsif ( $token =~ /from:(.*)/i )
+            {
+
+                #
+                #  Filter all current messages to remove those that
+                # don't match the given subject string.
+                #
+                my $sender = $1;
+                print "Looking for $sender in the from: field\n";
+
+                my @matches;
+
+                foreach my $id (@messages)
+                {
+                    print "Testing message: $id\n";
+                    my $msg = $imap->get($id);
+
+                    if ($msg)
+                    {
+                        my $found = 0;
+
+                        foreach my $line (@$msg)
+                        {
+                            next if ($found);
+
+                            if (    ( $line =~ /^From:/ )
+                                 && ( $line =~ /\Q$sender\E/i )
+                                 && ( !$found ) )
+                            {
+                                push( @matches, $id );
+                                print "\tmatch: found\n";
+                                $found += 1;
+                            }
+                        }
+                    }
+                }
+                @messages = @matches;
+                print "Done\n";
+            }
+            elsif ( $token =~ /execonce:(.*)/i )
+            {
+
+                #
+                #  Execute the named program only once, regardless of
+                # the number of matches.
+                #
+                my $prog = $1;
+                $prog =~ s/^\s+//;
+                $prog =~ s/\s+$//;
+
+
+                my $count = scalar(@messages);
+                if ($count)
+                {
+                    print "Executing program: $prog [$count]\n";
+                    system($prog );
+                    print "Done\n";
+                }
+
+            }
+            elsif ( $token =~ /exec:(.*)/i )
+            {
+
+                #
+                #  Execute the named program once for each selected
+                # message.
+                #
+                my $prog = $1;
+                $prog =~ s/^\s+//;
+                $prog =~ s/\s+$//;
+
+                print "Executing program: $prog\n";
+
+                foreach my $id (@messages)
+                {
+                    print "\t$id\n";
+                    my $msg = $imap->get($id);
+
+                    if ($msg)
+                    {
+                        my ( $fh, $filename ) = tempfile();
+
+                        foreach my $m (@$msg)
+                        {
+                            print $fh $m;
+                        }
+                        close($fh);
+
+                        print "\tRunning:cat $filename | $prog\n";
+                        system("cat $filename | $prog");
+                        unlink($filename);
+                    }
+                }
+                print "Done\n";
+            }
+            elsif ( $token =~ /delete/i )
+            {
+
+                #
+                #  Delete all currently selected messages.
+                #
+                print "Deleting messages:\n";
+
+                foreach my $id (@messages)
+                {
+                    print "\t$id\n";
+                    $imap->delete($id);
+                }
+                print "Done\n";
+            }
+            elsif ( $token =~ /dump/i )
+            {
+
+                #
+                #  Dump details of the message
+                #
+                my $to      = '';
+                my $from    = '';
+                my $subject = '';
+
+                foreach my $id (@messages)
+                {
+                    my $msg = $imap->get($id);
+
+                    if ($msg)
+                    {
+                        foreach my $line (@$msg)
+                        {
+                            $subject = $1 if ( $line =~ /^Subject: (.*)/i );
+                            $from    = $1 if ( $line =~ /^From: (.*)/i );
+                            $to      = $1 if ( $line =~ /^To: (.*)/i );
+                        }
+
+                        print <<EOF;
+[$id]
+ To: $to
+ From: $from
+ Subject: $subject
+EOF
+                    }
+                }
+                print "Done\n";
+
+            }
+            elsif ( $token =~ /move:(.*)/i )
+            {
+
+                #
+                #  Move all selected messages to the specified folder.
+                #
+                my $dest = $1;
+                $dest =~ s/^\s+//;
+                $dest =~ s/\s+$//;
+                print "Moving messages to $dest\n";
+
+                foreach my $id (@messages)
+                {
+                    print "\t$id\n";
+                    if ( $imap->copy( $id, $dest ) )
+                    {
+                        $imap->delete($id);
+                    }
+                }
+                print "Done\n";
+            }
+        }
+    }
+    close(INP);
+}
+
+
+
+=begin doc
+
+  Primitive to return a list of message IDs which are messages that
+ are not read.
+
+=end doc
+
+=cut
+
+sub findUnread
+{
+    my ($count) = (@_);
+    my $sh = $imap->{ sock };
+    print $sh "A$count SEARCH unseen\r\n";
+
+    my @matches;
+    while ( my $resp = $sh->getline() )
+    {
+        last if ( $resp =~ /OK/ );
+
+        if ( $resp =~ /SEARCH / )
+        {
+            if ($resp) {chomp($resp);}
+
+            foreach my $tok ( split( / /, $resp ) )
+            {
+                if ( $tok =~ /^([0-9]+)/ )
+                {
+                    $tok = $1;
+                }
+                push( @matches, $tok ) if ( $tok =~ /^([0-9]+)$/ );
+            }
+        }
+    }
+    return (@matches);
+}
+
+
+
+=begin doc
+
+  Primitive:  Find the messages IDs of messages which have been
+ read in the current folder.
+
+=end doc
+
+=cut
+
+sub findRead
+{
+    my ($count) = (@_);
+    my $sh = $imap->{ sock };
+    print $sh "A$count SEARCH seen\r\n";
+
+    my @matches;
+    while ( my $resp = $sh->getline() )
+    {
+        last if ( $resp =~ /OK/ );
+
+        if ($resp) {chomp($resp);}
+
+        if ( $resp =~ /SEARCH / )
+        {
+            foreach my $tok ( split( / /, $resp ) )
+            {
+                if ( $tok =~ /^([0-9]+)/ )
+                {
+                    $tok = $1;
+                }
+
+                push( @matches, $tok ) if ( $tok =~ /^([0-9]+)$/ );
+            }
+        }
+    }
+
+    return (@matches);
+}

@@ -1,0 +1,77 @@
+sift
+----/
+
+
+  This is a simple project which is designed to allow you to conduct
+ operations upon the messages maintained on a remote IMAP server.
+
+  So far this code has only been tested against the Googlamil service,
+ but I'd anticipate it should work regardless of IMAP server.
+
+   Usage is non-documented at the moment, except for this short
+ configuration example:
+
+siftrc:
+--
+
+username: somebody.says
+password: testing
+
+folder:cm status:new subject:blackvelvet mark:read exec:"notify"
+--
+
+
+
+Operations
+----------
+
+  All operations have a notion of the working set.  By default when
+ a folder is opened each message is included in that working set.
+
+  The set may be reduced by filtering on status, subject, or body-content.
+
+  For example the following selects all messages:
+
+folder:foo
+
+  This selects all new messages in the folder:
+
+folder:foo status:new
+
+
+  Filters are chained, so this next example selects all messages containing
+ "foo" in the subject which are new:
+
+folder:foo status:new subject:foo
+
+
+
+Primitives
+----------
+
+
+   subject: foo
+     Reduce the working set to those messages which contain 'foo' in the
+    subject.
+
+   from:bar@bar.com
+     Reduce the working set to those messags which contain 'bar@bar.com'
+    in the sender adress
+
+   status:[new|read]
+     Select only messags with the given state.
+
+
+    delete
+     Delete all currently selected messages.
+
+    move:bar
+     Move all currently selected messages into the new folder 'bar'.
+
+    mark:[read|unread]
+     Mark all selected messages as either read/unread.
+
+
+
+Steve
+--
