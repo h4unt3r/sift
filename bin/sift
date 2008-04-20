@@ -266,8 +266,8 @@ sub findLoginField
     }
     close(INPUT);
 
-    $result =~ s/^\s+// if ( defined( $result ) );
-    $result =~ s/\s+$// if ( defined( $result ) );
+    $result =~ s/^\s+// if ( defined($result) );
+    $result =~ s/\s+$// if ( defined($result) );
 
     return ($result);
 }
@@ -323,6 +323,7 @@ sub processRules
 
     while ( my $line = <INP> )
     {
+
         # skip empty lines and comments.
         next if ( !$line );
         next if ( $line =~ /^#/ );
@@ -377,14 +378,14 @@ sub processRules
                 {
                     print "Finding messages which are new\n";
                     @messages = findUnread($count);
-                    print "\tCount of messages: " . scalar( @messages ). "\n";
+                    print "\tCount of messages: " . scalar(@messages) . "\n";
                     print "Done\n";
                 }
                 if ( $status =~ /old/i )
                 {
                     print "Finding messages which have been read\n";
                     @messages = findRead($count);
-                    print "\tCount of messages: " . scalar( @messages ). "\n";
+                    print "\tCount of messages: " . scalar(@messages) . "\n";
                     print "Done\n";
                 }
             }
@@ -395,7 +396,7 @@ sub processRules
                 #  No option if there are no messages.
                 #
                 my $count = scalar(@messages);
-                if (!$count)
+                if ( !$count )
                 {
                     next;
                 }
@@ -473,7 +474,7 @@ sub processRules
                     }
                 }
                 @messages = @matches;
-                print "\tCount of messages: " . scalar( @messages ). "\n";
+                print "\tCount of messages: " . scalar(@messages) . "\n";
                 print "Done\n";
             }
             elsif ( $token =~ /from:(.*)/i )
@@ -513,7 +514,7 @@ sub processRules
                     }
                 }
                 @messages = @matches;
-                print "\tCount of messages: " . scalar( @messages ). "\n";
+                print "\tCount of messages: " . scalar(@messages) . "\n";
                 print "Done\n";
             }
             elsif ( $token =~ /execonce:(.*)/i )
@@ -552,7 +553,7 @@ sub processRules
                 #  No option if there are no messages.
                 #
                 my $count = scalar(@messages);
-                if (!$count)
+                if ( !$count )
                 {
                     next;
                 }
@@ -589,7 +590,7 @@ sub processRules
                 #  No option if there are no messages.
                 #
                 my $count = scalar(@messages);
-                if (!$count)
+                if ( !$count )
                 {
                     next;
                 }
@@ -613,7 +614,7 @@ sub processRules
                 #  No option if there are no messages.
                 #
                 my $count = scalar(@messages);
-                if (!$count)
+                if ( !$count )
                 {
                     next;
                 }
@@ -664,7 +665,7 @@ EOF
                 #  No option if there are no messages.
                 #
                 my $count = scalar(@messages);
-                if (!$count)
+                if ( !$count )
                 {
                     next;
                 }
