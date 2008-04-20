@@ -341,8 +341,8 @@ sub login
 
 =begin doc
 
-
-  Proces the rules contained in the given configuration file.
+  Read the specified configuration file, and process each line which
+ appears to be valid.
 
 =end doc
 
@@ -365,392 +365,420 @@ sub processRules
         # look for lines starting with 'folder'
         next if ( $line !~ /^folder/ );
 
+        # ok we have a valid rule line, process it.
+        processRule($line);
+    }
+
+    close(INP);
+}
+
+
+
+=begin doc
+
+  Process a single rule-line read from the configuration file.
+
+=end doc
+
+=cut
+
+sub processRule
+{
+    my ($line) = (@_);
+
+    #
+    #  The stack of messages we've currently got selected.
+    #
+    my @messages;
+
+    #
+    #  The count of messages in the current folder.
+    #
+    my $count;
+
+    #
+    #  Break the list of rules up into a collection of space-separated
+    # tokens.
+    #
+    foreach my $token ( split( / /, $line ) )
+    {
 
         #
-        #  The stack of messages we'll work with.
+        #  Change folder.  Mark all messages as current.
         #
-        my @messages;
+        if ( $token =~ /folder:(.*)/i )
+        {
+            my $folder = $1;
 
-        #
-        #  The count of messages in the current folder.
-        #
-        my $count;
+            #
+            #  Convert '#' -> ' '.
+            #
+            $folder =~ s/#/ /g if ($folder);
 
-        foreach my $token ( split( / /, $line ) )
+            #
+            #  Select the folder.
+            #
+            $CONFIG{ 'verbose' } && print "Selecting folder: $folder\n";
+            $count = $imap->select($folder);
+            if ( !defined $count )
+            {
+                print "\tSelecting folder '$folder' failed\n";
+                print "\tThe folder is probably empty\n";
+                exit;
+            }
+
+            #
+            # Show message count
+            #
+            $CONFIG{ 'verbose' } && print "\tFound $count messages\n";
+            foreach my $id ( 1 .. $count )
+            {
+                push( @messages, $id );
+            }
+        }
+        elsif ( $token =~ /status:(.*)/i )
         {
 
             #
-            #  Change folder.  Mark all messages as current.
+            #  Update current stack of messages to only
+            # be those that are of the given status.
             #
-            if ( $token =~ /folder:(.*)/i )
+            my $status = $1;
+            if (    ( $status =~ /^new$/i )
+                 || ( $status =~ /^unread$/i ) )
             {
-                my $folder = $1;
-                print "\n\n";
-                print "Selecting folder: $folder\n";
-                $count = $imap->select($folder);
-                if ( !$count )
-                {
-                    print "Selecting folder failed\n";
-                    next;
-                }
-                print "\tCount of messages: $count\n";
-                foreach my $id ( 1 .. $count )
-                {
-                    push( @messages, $id );
-                }
-                print "done\n";
+                $CONFIG{ 'verbose' } && print "Finding unread messages\n";
+                @messages = findUnread($count);
+                my $c = scalar(@messages);
+                $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
             }
-            elsif ( $token =~ /status:(.*)/i )
+            if (    ( $status =~ /^old$/i )
+                 || ( $status =~ /^read$/i ) )
             {
-
-                #
-                #  Update current stack of messages to only
-                # be those that are of the given status.
-                #
-                my $status = $1;
-                if (    ( $status =~ /^new$/i )
-                     || ( $status =~ /^unread$/i ) )
-                {
-                    print "Finding messages which are new\n";
-                    @messages = findUnread($count);
-                    print "\tCount of messages: " . scalar(@messages) . "\n";
-                    print "Done\n";
-                }
-                if (    ( $status =~ /^old$/i )
-                     || ( $status =~ /^read$/i ) )
-                {
-                    print "Finding messages which have been read\n";
-                    @messages = findRead($count);
-                    print "\tCount of messages: " . scalar(@messages) . "\n";
-                    print "Done\n";
-                }
+                $CONFIG{ 'verbose' } && print "Finding old messages\n";
+                @messages = findRead($count);
+                my $c = scalar(@messages);
+                $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
             }
-            elsif ( $token =~ /mark:(.*)/i )
+        }
+        elsif ( $token =~ /mark:(.*)/i )
+        {
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
             {
+                next;
+            }
 
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
+            #
+            #  Mark all the currently selected messages as either
+            # "new" or "read".
+            #
+            my $state = $1;
+            if (    ( $state =~ /^new$/i )
+                 || ( $state =~ /^read$/i ) )
+            {
+                $CONFIG{ 'verbose' } && print "Marking messages as read\n";
+                foreach my $id (@messages)
                 {
-                    next;
-                }
-
-                #
-                #  Mark all the currently selected messages as either
-                # "new" or "read".
-                #
-                my $state = $1;
-                if (    ( $state =~ /^new$/i )
-                     || ( $state =~ /^read$/i ) )
-                {
-                    print "Marking as read\n";
-                    foreach my $id (@messages)
-                    {
-                        print "Msg: $id\n";
-                        $imap->_process_cmd(
+                    $CONFIG{ 'verbose' } && print "\t:$id\n";
+                    $imap->_process_cmd(
                                       cmd => [STORE => qq[$id +FLAGS (\\Seen)]],
                                       final   => sub {1},
                                       process => sub { },
-                        );
-                    }
-
-                    print "Done\n";
+                    );
                 }
-                if (    ( $state =~ /^unread$/i )
-                     || ( $state =~ /^old$/i ) )
+            }
+            if (    ( $state =~ /^unread$/i )
+                 || ( $state =~ /^old$/i ) )
+            {
+                $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
+                foreach my $id (@messages)
                 {
-                    print "Marking as unread\n";
-                    foreach my $id (@messages)
-                    {
-                        print "Msg: $id\n";
-                        $imap->_process_cmd(
+                    $CONFIG{ 'verbose' } && print "Msg: $id\n";
+                    $imap->_process_cmd(
                                cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
                                final   => sub {1},
                                process => sub { },
-                        );
-                    }
-
-                    print "Done\n";
+                    );
                 }
             }
-            elsif ( $token =~ /subject:(.*)/i )
+        }
+        elsif ( $token =~ /subject:(.*)/i )
+        {
+
+            #
+            #  Filter all current messages to remove those that
+            # don't match the given subject string.
+            #
+            my $subject = $1;
+            $CONFIG{ 'verbose' }
+              && print "Looking messages with subject matching: $subject\n";
+
+            my @matches;
+
+            foreach my $id (@messages)
             {
+                my $msg = $imap->get($id);
 
-                #
-                #  Filter all current messages to remove those that
-                # don't match the given subject string.
-                #
-                my $subject = $1;
-                print "Looking for $subject in subject\n";
-
-                my @matches;
-
-                foreach my $id (@messages)
+                if ($msg)
                 {
-                    print "Testing message: $id\n";
-                    my $msg = $imap->get($id);
+                    my $found = 0;
 
-                    if ($msg)
+                    foreach my $line (@$msg)
                     {
-                        my $found = 0;
+                        next if ($found);
 
-                        foreach my $line (@$msg)
+                        if (    ( $line =~ /^Subject:/ )
+                             && ( $line =~ /\Q$subject\E/i )
+                             && ( !$found ) )
                         {
-                            next if ($found);
-
-                            if (    ( $line =~ /^Subject:/ )
-                                 && ( $line =~ /\Q$subject\E/i )
-                                 && ( !$found ) )
-                            {
-                                push( @matches, $id );
-                                print "\tmatch: found\n";
-                                $found += 1;
-                            }
+                            push( @matches, $id );
+                            print "\tmatch: found\n";
+                            $found += 1;
                         }
                     }
                 }
-                @messages = @matches;
-                print "\tCount of messages: " . scalar(@messages) . "\n";
-                print "Done\n";
             }
-            elsif ( $token =~ /from:(.*)/i )
+            @messages = @matches;
+            $CONFIG{ 'verbose' }
+              && print "\tFound "
+              . scalar(@messages)
+              . " matching message(s)\n";
+        }
+        elsif ( $token =~ /from:(.*)/i )
+        {
+
+            #
+            #  Filter all current messages to remove those that
+            # don't match the given subject string.
+            #
+            my $sender = $1;
+            $CONFIG{ 'verbose' }
+              && print "Looking messages with sender matching: $sender\n";
+
+            my @matches;
+
+            foreach my $id (@messages)
             {
+                print "Testing message: $id\n";
+                my $msg = $imap->get($id);
 
-                #
-                #  Filter all current messages to remove those that
-                # don't match the given subject string.
-                #
-                my $sender = $1;
-                print "Looking for $sender in the from: field\n";
-
-                my @matches;
-
-                foreach my $id (@messages)
+                if ($msg)
                 {
-                    print "Testing message: $id\n";
-                    my $msg = $imap->get($id);
+                    my $found = 0;
 
-                    if ($msg)
+                    foreach my $line (@$msg)
                     {
-                        my $found = 0;
+                        next if ($found);
 
-                        foreach my $line (@$msg)
+                        if (    ( $line =~ /^From:/ )
+                             && ( $line =~ /\Q$sender\E/i )
+                             && ( !$found ) )
                         {
-                            next if ($found);
-
-                            if (    ( $line =~ /^From:/ )
-                                 && ( $line =~ /\Q$sender\E/i )
-                                 && ( !$found ) )
-                            {
-                                push( @matches, $id );
-                                print "\tmatch: found\n";
-                                $found += 1;
-                            }
+                            push( @matches, $id );
+                            print "\tmatch: found\n";
+                            $found += 1;
                         }
                     }
                 }
-                @messages = @matches;
-                print "\tCount of messages: " . scalar(@messages) . "\n";
-                print "Done\n";
             }
-            elsif ( $token =~ /execonce:(.*)/i )
+            @messages = @matches;
+            $CONFIG{ 'verbose' }
+              && print "\tFound "
+              . scalar(@messages)
+              . " matching message(s)\n";
+        }
+        elsif ( $token =~ /execonce:(.*)/i )
+        {
+
+            #
+            #  Execute the named program only once, regardless of
+            # the number of matches.
+            #
+            my $prog = $1;
+            $prog =~ s/^\s+//;
+            $prog =~ s/\s+$//;
+
+
+            my $count = scalar(@messages);
+            if ($count)
             {
-
-                #
-                #  Execute the named program only once, regardless of
-                # the number of matches.
-                #
-                my $prog = $1;
-                $prog =~ s/^\s+//;
-                $prog =~ s/\s+$//;
-
-
-                my $count = scalar(@messages);
-                if ($count)
-                {
-                    print "Executing program: $prog [$count]\n";
-                    system($prog );
-                    print "Done\n";
-                }
-
+                $CONFIG{ 'verbose' } && print "Executing program: $prog\n";
+                system($prog );
             }
-            elsif ( $token =~ /exec:(.*)/i )
+
+        }
+        elsif ( $token =~ /exec:(.*)/i )
+        {
+
+            #
+            #  Execute the named program once for each selected
+            # message.
+            #
+            my $prog = $1;
+            $prog =~ s/^\s+//;
+            $prog =~ s/\s+$//;
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
             {
+                next;
+            }
 
-                #
-                #  Execute the named program once for each selected
-                # message.
-                #
-                my $prog = $1;
-                $prog =~ s/^\s+//;
-                $prog =~ s/\s+$//;
 
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
+            $CONFIG{ 'verbose' } && print "Executing program: $prog\n";
+
+            foreach my $id (@messages)
+            {
+                print "\t$id\n";
+                my $msg = $imap->get($id);
+
+                if ($msg)
                 {
-                    next;
-                }
+                    my ( $fh, $filename ) = tempfile();
 
-
-                print "Executing program: $prog\n";
-
-                foreach my $id (@messages)
-                {
-                    print "\t$id\n";
-                    my $msg = $imap->get($id);
-
-                    if ($msg)
+                    foreach my $m (@$msg)
                     {
-                        my ( $fh, $filename ) = tempfile();
-
-                        foreach my $m (@$msg)
-                        {
-                            print $fh $m;
-                        }
-                        close($fh);
-
-                        print "\tRunning:cat $filename | $prog\n";
-                        system("cat $filename | $prog");
-                        unlink($filename);
+                        print $fh $m;
                     }
+                    close($fh);
+
+                    system("cat $filename | $prog");
+                    unlink($filename);
                 }
-                print "Done\n";
             }
-            elsif ( $token =~ /delete/i )
+        }
+        elsif ( $token =~ /delete/i )
+        {
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
             {
+                next;
+            }
 
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
+            #
+            #  Delete all currently selected messages.
+            #
+            $CONFIG{ 'verbose' } && print "Deleting messages\n";
+
+            foreach my $id (@messages)
+            {
+                print "\t$id\n";
+                $imap->delete($id);
+            }
+        }
+        elsif ( $token =~ /dump/i )
+        {
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
+            {
+                next;
+            }
+
+            #
+            #  Dump details of the message
+            #
+            my $to      = '';
+            my $from    = '';
+            my $subject = '';
+
+            foreach my $id (@messages)
+            {
+                my $msg = $imap->get($id);
+
+                if ($msg)
                 {
-                    next;
+                    foreach my $line (@$msg)
+                    {
+                        $subject = $1 if ( $line =~ /^Subject: (.*)/i );
+                        $from    = $1 if ( $line =~ /^From: (.*)/i );
+                        $to      = $1 if ( $line =~ /^To: (.*)/i );
+                    }
+
+                    print <<EOF;
+[$id]
+	To: $to
+	From: $from
+	Subject: $subject
+EOF
                 }
+            }
 
-                #
-                #  Delete all currently selected messages.
-                #
-                print "Deleting messages:\n";
+        }
+        elsif ( $token =~ /move:(.*)/i )
+        {
 
-                foreach my $id (@messages)
+            #
+            #  Move all selected messages to the specified folder.
+            #
+            my $dest = $1;
+            $dest =~ s/^\s+//;
+            $dest =~ s/\s+$//;
+
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
+            {
+                next;
+            }
+
+            $CONFIG{ 'verbose' } && print "Moving messages to folder: $dest\n";
+
+            foreach my $id (@messages)
+            {
+                print "\t$id\n";
+                if ( $imap->copy( $id, $dest ) )
                 {
-                    print "\t$id\n";
                     $imap->delete($id);
                 }
-                print "Done\n";
             }
-            elsif ( $token =~ /dump/i )
+        }
+        elsif ( $token =~ /copy:(.*)/i )
+        {
+
+            #
+            #  Copy all selected messages to the specified folder.
+            #
+            my $dest = $1;
+            $dest =~ s/^\s+//;
+            $dest =~ s/\s+$//;
+
+            #
+            #  No option if there are no messages.
+            #
+            my $count = scalar(@messages);
+            if ( !$count )
             {
-
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
-                {
-                    next;
-                }
-
-                #
-                #  Dump details of the message
-                #
-                my $to      = '';
-                my $from    = '';
-                my $subject = '';
-
-                foreach my $id (@messages)
-                {
-                    my $msg = $imap->get($id);
-
-                    if ($msg)
-                    {
-                        foreach my $line (@$msg)
-                        {
-                            $subject = $1 if ( $line =~ /^Subject: (.*)/i );
-                            $from    = $1 if ( $line =~ /^From: (.*)/i );
-                            $to      = $1 if ( $line =~ /^To: (.*)/i );
-                        }
-
-                        print <<EOF;
-[$id]
- To: $to
- From: $from
- Subject: $subject
-EOF
-                    }
-                }
-                print "Done\n";
-
+                next;
             }
-            elsif ( $token =~ /move:(.*)/i )
+
+            $CONFIG{ 'verbose' } && print "Copying messages to folder: $dest\n";
+
+            foreach my $id (@messages)
             {
-
-                #
-                #  Move all selected messages to the specified folder.
-                #
-                my $dest = $1;
-                $dest =~ s/^\s+//;
-                $dest =~ s/\s+$//;
-
-
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
-                {
-                    next;
-                }
-
-                print "Moving messages to $dest\n";
-
-                foreach my $id (@messages)
-                {
-                    print "\t$id\n";
-                    if ( $imap->copy( $id, $dest ) )
-                    {
-                        $imap->delete($id);
-                    }
-                }
-                print "Done\n";
-            }
-            elsif ( $token =~ /copy:(.*)/i )
-            {
-
-                #
-                #  Copy all selected messages to the specified folder.
-                #
-                my $dest = $1;
-                $dest =~ s/^\s+//;
-                $dest =~ s/\s+$//;
-
-                #
-                #  No option if there are no messages.
-                #
-                my $count = scalar(@messages);
-                if ( !$count )
-                {
-                    next;
-                }
-
-                print "Copying messages to $dest\n";
-
-                foreach my $id (@messages)
-                {
-                    print "\t$id\n";
-                    $imap->copy( $id, $dest );
-                }
-                print "Done\n";
+                print "\t$id\n";
+                $imap->copy( $id, $dest );
             }
         }
     }
-    close(INP);
 }
 
 
