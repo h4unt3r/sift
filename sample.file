@@ -35,6 +35,11 @@ folder:livejournal status:new subject:velvet mark:read exec:/usr/local/bin/f
 
 
 #
-#  Another rule.  Delete all messages in the spam folder.
+#  Another rule simple rule.
 #
-folder:spam delete
+#  Delete all messages in the spam folder.
+#
+#  Notice how the space has been replaced with '#', this is expanded by
+# the sift script itself.
+#
+folder:[Google#Mail]/Spam delete

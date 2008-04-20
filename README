@@ -78,6 +78,11 @@ Primitives
 
 Selection Rules:
 
+   folder:foo
+     Select the specified folder.  To ease use with Googlemail all '#'
+    characters are converted to spaces.  This allows the following rule
+    to work as expected:  "folder:[Google#Mail]/Spam delete"
+
    subject:foo
      Reduce the working set to those messages which contain 'foo' in the
     subject.
