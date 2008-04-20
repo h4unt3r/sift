@@ -92,6 +92,12 @@ my %CONFIG;
 
 
 #
+#  Release:  Set by "make release"
+#
+$CONFIG{'version'} = 'UNRELEASED';
+
+
+#
 #  Global connection handle
 #
 my $imap;
@@ -163,6 +169,8 @@ sub parseCommandLineArguments
 {
     my $HELP   = 0;
     my $MANUAL = 0;
+    my $VERSION = 0;
+
 
     #
     #  Parse options.
@@ -172,7 +180,9 @@ sub parseCommandLineArguments
         # Help options
         "help",    \$HELP,
         "manual",  \$MANUAL,
+        "version", \$VERSION,
         "verbose", \$CONFIG{ 'verbose' },
+
 
         # login details
         "user=s",   \$CONFIG{ 'username' },
@@ -183,6 +193,11 @@ sub parseCommandLineArguments
     pod2usage(1) if $HELP;
     pod2usage( -verbose => 2 ) if $MANUAL;
 
+    if ( $VERSION )
+    {
+        print "sift v$CONFIG{'version'}\n";
+        exit;
+    }
 }
 
 
