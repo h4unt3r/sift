@@ -119,6 +119,7 @@ foreach my $file (@ARGV)
     my $username = $CONFIG{ 'username' } || findUsername($file) || undef;
     my $password = $CONFIG{ 'password' } || findPassword($file) || undef;
     my $server   = $CONFIG{ 'server' }   || findServer($file)   || undef;
+    my $ssl      = $CONFIG{ 'ssl' }      || 0;
 
     if (    !defined($username)
          || !defined($password) )
@@ -133,9 +134,14 @@ foreach my $file (@ARGV)
     }
 
     #
+    #  GMail requires the use of SSL.
+    #
+    $ssl = 1 if ( $server =~ /imap\.gmail\.com/ );
+
+    #
     #  Login
     #
-    $imap = login( $server, $username, $password );
+    $imap = login( $server, $username, $password, $ssl );
 
     #
     #  Run the file.
@@ -188,6 +194,10 @@ sub parseCommandLineArguments
         "user=s",   \$CONFIG{ 'username' },
         "pass=s",   \$CONFIG{ 'password' },
         "server=s", \$CONFIG{ 'server' },
+
+        # use SSL?
+        "ssl", \$CONFIG{ 'ssl' },
+
     );
 
     pod2usage(1) if $HELP;
@@ -299,15 +309,24 @@ sub findLoginField
 
 sub login
 {
-    my ( $server, $user, $pass ) = (@_);
+    my ( $server, $user, $pass, $ssl ) = (@_);
 
 
     #
     #  Connect
     #
-    my $imap = Net::IMAP::Simple::SSL->new($server)
-      or die "Unable to connect to IMAP server: '$server'.\n";
+    my $imap;
 
+    if ($ssl)
+    {
+        $imap = Net::IMAP::Simple::SSL->new($server)
+          or die "Unable to connect to IMAP server: '$server'.\n";
+    }
+    else
+    {
+        $imap = Net::IMAP::Simple->new($server)
+          or die "Unable to connect to IMAP server: '$server'.\n";
+    }
 
     #
     # Login
