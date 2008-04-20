@@ -779,7 +779,7 @@ EOF
 
             foreach my $id (@messages)
             {
-                print "\t$id\n";
+                $CONFIG{'verbose'} && print "\t$id\n";
                 $imap->copy( $id, $dest );
             }
         }
