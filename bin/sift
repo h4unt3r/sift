@@ -323,7 +323,6 @@ sub processRules
 
     while ( my $line = <INP> )
     {
-
         # skip empty lines and comments.
         next if ( !$line );
         next if ( $line =~ /^#/ );
@@ -359,7 +358,7 @@ sub processRules
                     print "Selecting folder failed\n";
                     next;
                 }
-                print "Count of messages: $count\n";
+                print "\tCount of messages: $count\n";
                 foreach my $id ( 1 .. $count )
                 {
                     push( @messages, $id );
@@ -378,17 +377,28 @@ sub processRules
                 {
                     print "Finding messages which are new\n";
                     @messages = findUnread($count);
+                    print "\tCount of messages: " . scalar( @messages ). "\n";
                     print "Done\n";
                 }
                 if ( $status =~ /old/i )
                 {
                     print "Finding messages which have been read\n";
                     @messages = findRead($count);
+                    print "\tCount of messages: " . scalar( @messages ). "\n";
                     print "Done\n";
                 }
             }
             elsif ( $token =~ /mark:(.*)/i )
             {
+
+                #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if (!$count)
+                {
+                    next;
+                }
 
                 #
                 #  Mark all the currently selected messages as either
@@ -463,6 +473,7 @@ sub processRules
                     }
                 }
                 @messages = @matches;
+                print "\tCount of messages: " . scalar( @messages ). "\n";
                 print "Done\n";
             }
             elsif ( $token =~ /from:(.*)/i )
@@ -502,6 +513,7 @@ sub processRules
                     }
                 }
                 @messages = @matches;
+                print "\tCount of messages: " . scalar( @messages ). "\n";
                 print "Done\n";
             }
             elsif ( $token =~ /execonce:(.*)/i )
@@ -536,6 +548,16 @@ sub processRules
                 $prog =~ s/^\s+//;
                 $prog =~ s/\s+$//;
 
+                #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if (!$count)
+                {
+                    next;
+                }
+
+
                 print "Executing program: $prog\n";
 
                 foreach my $id (@messages)
@@ -564,6 +586,15 @@ sub processRules
             {
 
                 #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if (!$count)
+                {
+                    next;
+                }
+
+                #
                 #  Delete all currently selected messages.
                 #
                 print "Deleting messages:\n";
@@ -577,6 +608,15 @@ sub processRules
             }
             elsif ( $token =~ /dump/i )
             {
+
+                #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if (!$count)
+                {
+                    next;
+                }
 
                 #
                 #  Dump details of the message
@@ -618,6 +658,17 @@ EOF
                 my $dest = $1;
                 $dest =~ s/^\s+//;
                 $dest =~ s/\s+$//;
+
+
+                #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if (!$count)
+                {
+                    next;
+                }
+
                 print "Moving messages to $dest\n";
 
                 foreach my $id (@messages)
