@@ -1,0 +1,25 @@
+Source: sift
+Section: utils
+Priority: extra
+Maintainer: Steve Kemp <steve@steve.org.uk>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.3
+Homepage: http://www.steve.org.uk/Software/sift/
+
+Package: sift
+Architecture: all
+Depends: ${perl:Depends}, libnet-imap-simple-ssl-perl, perl-modules
+Description: A scriptable IMAP client utility.
+ This is a tool which allows you to manipulate the contents of a remote
+ IMAP server via a collection of simple rules.
+ .
+ There are primitives for:
+ .
+  * Selecting messages based upon status, subject & body contents.
+ .
+  * Executing programs.
+ .
+  * Moving, Copying, and Deleting messages.
+ .
+ So far this has only been tested against Google's IMAP server, but it
+ should be portable, and any regression is a bug.
