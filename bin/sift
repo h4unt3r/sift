@@ -113,19 +113,19 @@ parseCommandLineArguments();
 #
 #  Early login?
 #
-if ( $CONFIG{'server'} && $CONFIG{'username'} && $CONFIG{'password'} )
+if ( $CONFIG{ 'server' } && $CONFIG{ 'username' } && $CONFIG{ 'password' } )
 {
+
     #
     #  Are we using SSL?
     #
-    my $ssl = $CONFIG{'ssl'} || 0;
-    $ssl    = 1 if ( $CONFIG{'server'} =~ /imap\.gmail\.com/i );
+    my $ssl = $CONFIG{ 'ssl' } || 0;
+    $ssl = 1 if ( $CONFIG{ 'server' } =~ /imap\.gmail\.com/i );
 
     # login
-    $imap = login( $CONFIG{'server'},
-                   $CONFIG{'username'},
-                   $CONFIG{'password'},
-                   $ssl );
+    $imap = login( $CONFIG{ 'server' },
+                   $CONFIG{ 'username' },
+                   $CONFIG{ 'password' }, $ssl );
 
 }
 else
@@ -135,17 +135,18 @@ else
 
 
 
-
 #
 #  Are we running directly?
 #
-if ( $CONFIG{'execute'} )
+if ( $CONFIG{ 'execute' } )
 {
+
     # If we've logged in OK then we can run the snippet.
-    if (defined $imap )
+    if ( defined $imap )
     {
+
         # run the "script"
-        processRule( $CONFIG{'execute'} );
+        processRule( $CONFIG{ 'execute' } );
 
     }
     else
@@ -154,7 +155,7 @@ if ( $CONFIG{'execute'} )
     }
 
     # logout
-    $imap->quit() if ( defined( $imap ) );
+    $imap->quit() if ( defined($imap) );
 
     exit;
 }
@@ -166,24 +167,25 @@ if ( $CONFIG{'execute'} )
 #
 foreach my $file (@ARGV)
 {
+
     #
     #  If we've not been given login details then we need to find
     # them in the script file.  Use them to login.
     #
-    if ( ! defined( $imap ) )
+    if ( !defined($imap) )
     {
-        my $username =  findUsername($file) || undef;
+        my $username = findUsername($file) || undef;
         my $password = findPassword($file) || undef;
         my $server   = findServer($file)   || undef;
-        my $ssl      = $CONFIG{ 'ssl' }      || 0;
+        my $ssl      = $CONFIG{ 'ssl' }    || 0;
 
-        if ( !defined( $username ) )
+        if ( !defined($username) )
         {
             print "Failed to find username in the file $file\n";
             print "aborting\n";
             exit;
         }
-        if ( !defined( $password ) )
+        if ( !defined($password) )
         {
             print "Failed to find password in the file $file\n";
             print "aborting\n";
@@ -266,8 +268,8 @@ sub parseCommandLineArguments
         # use SSL?
         "ssl", \$CONFIG{ 'ssl' },
 
-               # execute directly?
-               "execute=s", \$CONFIG{'execute'},
+        # execute directly?
+        "execute=s", \$CONFIG{ 'execute' },
 
     );
 
@@ -382,7 +384,8 @@ sub login
 {
     my ( $server, $user, $pass, $ssl ) = (@_);
 
-    $CONFIG{'verbose'} && print "Logging in: $user\@$server [SSL: $ssl]\n";
+    $CONFIG{ 'verbose' } && print "Logging in: $user\@$server [SSL: $ssl]\n";
+
     #
     #  Connect
     #
@@ -405,7 +408,7 @@ sub login
     $imap->login( $user, $pass )
       or die "Login failed :" . $imap->errstr . "\n";
 
-    $CONFIG{'verbose'} && print "\tOK\n";
+    $CONFIG{ 'verbose' } && print "\tOK\n";
     return ($imap);
 }
 
@@ -485,12 +488,12 @@ sub processRule
             #
             #  '#' -> ' '
             #
-            $folder =~ s/([^#])#([^#])/$1 $2/g if ( $folder );
+            $folder =~ s/([^#])#([^#])/$1 $2/g if ($folder);
 
             #
             #  '##' -> '#'.
             #
-            $folder =~ s/##/#/g if ( $folder );
+            $folder =~ s/##/#/g if ($folder);
 
             #
             #  Select the folder.
@@ -714,7 +717,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                $CONFIG{'verbose'} && print "\t$id\n";
+                $CONFIG{ 'verbose' } && print "\t$id\n";
                 my $msg = $imap->get($id);
 
                 if ($msg)
@@ -751,7 +754,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                $CONFIG{'verbose'} && print "\t$id\n";
+                $CONFIG{ 'verbose' } && print "\t$id\n";
                 $imap->delete($id);
             }
         }
@@ -851,7 +854,7 @@ EOF
 
             foreach my $id (@messages)
             {
-                $CONFIG{'verbose'} && print "\t$id\n";
+                $CONFIG{ 'verbose' } && print "\t$id\n";
                 $imap->copy( $id, $dest );
             }
         }
