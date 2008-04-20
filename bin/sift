@@ -716,6 +716,34 @@ EOF
                 }
                 print "Done\n";
             }
+            elsif ( $token =~ /copy:(.*)/i )
+            {
+
+                #
+                #  Copy all selected messages to the specified folder.
+                #
+                my $dest = $1;
+                $dest =~ s/^\s+//;
+                $dest =~ s/\s+$//;
+
+                #
+                #  No option if there are no messages.
+                #
+                my $count = scalar(@messages);
+                if ( !$count )
+                {
+                    next;
+                }
+
+                print "Copying messages to $dest\n";
+
+                foreach my $id (@messages)
+                {
+                    print "\t$id\n";
+                    $imap->copy( $id, $dest );
+                }
+                print "Done\n";
+            }
         }
     }
     close(INP);

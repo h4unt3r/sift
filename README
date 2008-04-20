@@ -93,6 +93,9 @@ Selection Rules:
 
 Operation Rules:
 
+    copy:bar
+     Copy all currently selected messages into the folder 'bar'.
+
     delete
      Delete all currently selected messages.
 
