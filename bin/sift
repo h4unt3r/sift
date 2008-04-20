@@ -408,16 +408,16 @@ sub processRules
                 # be those that are of the given status.
                 #
                 my $status = $1;
-                if ( ( $status =~ /^new$/i ) ||
-                     ( $status =~ /^unread$/i ) )
+                if (    ( $status =~ /^new$/i )
+                     || ( $status =~ /^unread$/i ) )
                 {
                     print "Finding messages which are new\n";
                     @messages = findUnread($count);
                     print "\tCount of messages: " . scalar(@messages) . "\n";
                     print "Done\n";
                 }
-                if ( ( $status =~ /^old$/i ) ||
-                     ( $status =~ /^read$/i ) )
+                if (    ( $status =~ /^old$/i )
+                     || ( $status =~ /^read$/i ) )
                 {
                     print "Finding messages which have been read\n";
                     @messages = findRead($count);
@@ -442,8 +442,8 @@ sub processRules
                 # "new" or "read".
                 #
                 my $state = $1;
-                if ( ( $state =~ /^new$/i ) ||
-                     ( $state =~ /^read$/i ) )
+                if (    ( $state =~ /^new$/i )
+                     || ( $state =~ /^read$/i ) )
                 {
                     print "Marking as read\n";
                     foreach my $id (@messages)
@@ -458,8 +458,8 @@ sub processRules
 
                     print "Done\n";
                 }
-                if ( ( $state =~ /^unread$/i ) ||
-                     ( $state =~ /^old$/i ) )
+                if (    ( $state =~ /^unread$/i )
+                     || ( $state =~ /^old$/i ) )
                 {
                     print "Marking as unread\n";
                     foreach my $id (@messages)
