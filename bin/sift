@@ -107,20 +107,20 @@ parseCommandLineArguments();
 #
 #  Are there files specified upon the command line?
 #
-foreach my  $file  ( @ARGV )
+foreach my $file (@ARGV)
 {
 
-    my $username = $CONFIG{'username'} || findUsername( $file ) || undef;
-    my $password = $CONFIG{'password'} || findPassword( $file ) || undef;
-    my $server   = $CONFIG{'server'}   || findServer( $file ) || undef;
+    my $username = $CONFIG{ 'username' } || findUsername($file) || undef;
+    my $password = $CONFIG{ 'password' } || findPassword($file) || undef;
+    my $server   = $CONFIG{ 'server' }   || findServer($file)   || undef;
 
-    if ( !defined( $username ) ||
-         !defined( $password ) )
+    if (    !defined($username)
+         || !defined($password) )
     {
         print "Username / Password not found for file: $file\n";
         exit;
     }
-    if ( !defined( $server ) )
+    if ( !defined($server) )
     {
         print "IMAP server unknown.\n";
         exit;
@@ -134,7 +134,7 @@ foreach my  $file  ( @ARGV )
     #
     #  Run the file.
     #
-    processRules( $file );
+    processRules($file);
 
     #
     #  Logout.
@@ -151,7 +151,6 @@ exit;
 
 
 
-
 =begin doc
 
   Process the command line arguments.
@@ -162,8 +161,8 @@ exit;
 
 sub parseCommandLineArguments
 {
-    my $HELP    = 0;
-    my $MANUAL  = 0;
+    my $HELP   = 0;
+    my $MANUAL = 0;
 
     #
     #  Parse options.
@@ -171,14 +170,14 @@ sub parseCommandLineArguments
     GetOptions(
 
         # Help options
-        "help",        \$HELP,
-        "manual",      \$MANUAL,
-        "verbose",     \$CONFIG{ 'verbose' },
+        "help",    \$HELP,
+        "manual",  \$MANUAL,
+        "verbose", \$CONFIG{ 'verbose' },
 
-               # login details
-        "user=s", \$CONFIG{'username'},
-        "pass=s", \$CONFIG{'password'},
-        "server=s", \$CONFIG{'server'},
+        # login details
+        "user=s",   \$CONFIG{ 'username' },
+        "pass=s",   \$CONFIG{ 'password' },
+        "server=s", \$CONFIG{ 'server' },
     );
 
     pod2usage(1) if $HELP;
@@ -198,9 +197,9 @@ sub parseCommandLineArguments
 
 sub findUsername
 {
-    my ( $file ) = ( @_ );
+    my ($file) = (@_);
 
-    return( findLoginField( "username", $file ) );
+    return ( findLoginField( "username", $file ) );
 }
 
 
@@ -214,9 +213,9 @@ sub findUsername
 
 sub findPassword
 {
-    my ( $file ) = ( @_ );
+    my ($file) = (@_);
 
-    return( findLoginField( "password", $file ) );
+    return ( findLoginField( "password", $file ) );
 }
 
 
@@ -230,9 +229,9 @@ sub findPassword
 
 sub findServer
 {
-    my ( $file ) = ( @_ );
+    my ($file) = (@_);
 
-    return( findLoginField( "server", $file ) );
+    return ( findLoginField( "server", $file ) );
 }
 
 
@@ -247,7 +246,7 @@ sub findServer
 
 sub findLoginField
 {
-    my ($field, $file) = (@_);
+    my ( $field, $file ) = (@_);
 
     open( INPUT, "<", $file )
       or die "failed to read $file - $!";
@@ -259,8 +258,8 @@ sub findLoginField
         next if ( !$line );
         chomp($line);
 
-        if ( ( $line =~ /^\Q$field\E:(.*)/i ) &&
-             ( !defined( $result ) ) )
+        if (    ( $line =~ /^\Q$field\E:(.*)/i )
+             && ( !defined($result) ) )
         {
             $result = $1;
         }
@@ -270,7 +269,7 @@ sub findLoginField
     $result =~ s/^\s+//;
     $result =~ s/\s+$//;
 
-    return ( $result );
+    return ($result);
 }
 
 
@@ -291,7 +290,7 @@ sub login
     #
     #  Connect
     #
-    my $imap = Net::IMAP::Simple::SSL->new( $server )
+    my $imap = Net::IMAP::Simple::SSL->new($server)
       or die "Unable to connect to IMAP server: '$server'.\n";
 
 
