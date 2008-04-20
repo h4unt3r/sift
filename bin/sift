@@ -642,7 +642,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                print "\t$id\n";
+                $CONFIG{'verbose'} && print "\t$id\n";
                 my $msg = $imap->get($id);
 
                 if ($msg)
@@ -679,7 +679,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                print "\t$id\n";
+                $CONFIG{'verbose'} && print "\t$id\n";
                 $imap->delete($id);
             }
         }
