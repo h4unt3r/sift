@@ -1,6 +1,7 @@
 #
-# Username and password for googlemail account.
+# Login details for the googlemail IMAP account.
 #
+server: imap.gmail.cm
 username: blah.blah
 password: xxxx
 
