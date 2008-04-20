@@ -111,37 +111,100 @@ parseCommandLineArguments();
 
 
 #
+#  Early login?
+#
+if ( $CONFIG{'server'} && $CONFIG{'username'} && $CONFIG{'password'} )
+{
+    #
+    #  Are we using SSL?
+    #
+    my $ssl = $CONFIG{'ssl'} || 0;
+    $ssl    = 1 if ( $CONFIG{'server'} =~ /imap\.gmail\.com/i );
+
+    # login
+    $imap = login( $CONFIG{'server'},
+                   $CONFIG{'username'},
+                   $CONFIG{'password'},
+                   $ssl );
+
+}
+else
+{
+    $imap = undef;
+}
+
+
+
+
+#
+#  Are we running directly?
+#
+if ( $CONFIG{'execute'} )
+{
+    # If we've logged in OK then we can run the snippet.
+    if (defined $imap )
+    {
+        # run the "script"
+        processRule( $CONFIG{'execute'} );
+
+    }
+    else
+    {
+        print "Please specify username, password and server to connect to.\n";
+    }
+
+    # logout
+    $imap->quit() if ( defined( $imap ) );
+
+    exit;
+}
+
+
+
+#
 #  Are there files specified upon the command line?
 #
 foreach my $file (@ARGV)
 {
-
-    my $username = $CONFIG{ 'username' } || findUsername($file) || undef;
-    my $password = $CONFIG{ 'password' } || findPassword($file) || undef;
-    my $server   = $CONFIG{ 'server' }   || findServer($file)   || undef;
-    my $ssl      = $CONFIG{ 'ssl' }      || 0;
-
-    if (    !defined($username)
-         || !defined($password) )
+    #
+    #  If we've not been given login details then we need to find
+    # them in the script file.  Use them to login.
+    #
+    if ( ! defined( $imap ) )
     {
-        print "Username / Password not found for file: $file\n";
-        exit;
-    }
-    if ( !defined($server) )
-    {
-        print "IMAP server unknown.\n";
-        exit;
-    }
+        my $username =  findUsername($file) || undef;
+        my $password = findPassword($file) || undef;
+        my $server   = findServer($file)   || undef;
+        my $ssl      = $CONFIG{ 'ssl' }      || 0;
 
-    #
-    #  GMail requires the use of SSL.
-    #
-    $ssl = 1 if ( $server =~ /imap\.gmail\.com/ );
+        if ( !defined( $username ) )
+        {
+            print "Failed to find username in the file $file\n";
+            print "aborting\n";
+            exit;
+        }
+        if ( !defined( $password ) )
+        {
+            print "Failed to find password in the file $file\n";
+            print "aborting\n";
+            exit;
+        }
+        if ( !defined($server) )
+        {
+            print "IMAP server unknown.\n";
+            exit;
+        }
 
-    #
-    #  Login
-    #
-    $imap = login( $server, $username, $password, $ssl );
+        #
+        #  GMail requires the use of SSL.
+        #
+        $ssl = 1 if ( $server =~ /imap\.gmail\.com/i );
+
+        #
+        #  Login
+        #
+        $imap = login( $server, $username, $password, $ssl );
+    }
 
     #
     #  Run the file.
@@ -152,6 +215,11 @@ foreach my $file (@ARGV)
     #  Logout.
     #
     $imap->quit();
+
+    #
+    #  Reset so that we can reconnect properly
+    #
+    $imap = undef;
 }
 
 
@@ -197,6 +265,9 @@ sub parseCommandLineArguments
 
         # use SSL?
         "ssl", \$CONFIG{ 'ssl' },
+
+               # execute directly?
+               "execute=s", \$CONFIG{'execute'},
 
     );
 
@@ -311,7 +382,7 @@ sub login
 {
     my ( $server, $user, $pass, $ssl ) = (@_);
 
-
+    $CONFIG{'verbose'} && print "Logging in: $user\@$server [SSL: $ssl]\n";
     #
     #  Connect
     #
@@ -334,6 +405,7 @@ sub login
     $imap->login( $user, $pass )
       or die "Login failed :" . $imap->errstr . "\n";
 
+    $CONFIG{'verbose'} && print "\tOK\n";
     return ($imap);
 }
 
