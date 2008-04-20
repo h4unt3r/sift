@@ -411,9 +411,14 @@ sub processRule
             my $folder = $1;
 
             #
-            #  Convert '#' -> ' '.
+            #  '#' -> ' '
             #
-            $folder =~ s/#/ /g if ($folder);
+            $folder =~ s/([^#])#([^#])/$1 $2/g if ( $folder );
+
+            #
+            #  '##' -> '#'.
+            #
+            $folder =~ s/##/#/g if ( $folder );
 
             #
             #  Select the folder.
