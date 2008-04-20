@@ -7,6 +7,21 @@ sift - A scriptable IMAP utility program.
 
 =cut
 
+=head1 SYNOPSIS
+
+  Connection Options:
+
+   --username     Specify the username to login to IMAP with.
+   --password     Specify the matching password for the specified username.
+   --server       The server to connect with.
+
+  Misc Options:
+
+   --ssl          Force the use of SSL.
+   --execute      Specify a rule to execute directly.
+
+=cut
+
 
 =head1 ABOUT
 
@@ -38,7 +53,7 @@ sift - A scriptable IMAP utility program.
 
 =over 8
 
-=item Move messages into a new folder.
+=item Copy/Move messages into a new folder.
 
 =item Delete messages
 
@@ -53,6 +68,44 @@ sift - A scriptable IMAP utility program.
  be flexible enough for complex cases.
 
 =cut
+
+
+=head1 SAMPLE USAGE
+
+  As many options may be specified directly upon the command line,
+ it is possible to conduct many things directly.
+
+  The following example will delete all messages contained in the
+ 'spam' folder of a given Google Mail account:
+
+=for example begin
+
+   sift --username=foo --password=bar --server=imap.gmail.com \
+    --ssl --execute "folder:[Google#Mail]/Spam delete" --verbose
+
+=for example end
+
+  This example might look simpler as an input file.  If you save
+ the following into a file you may execute it via "sift filename":
+
+=for example begin
+
+username:  foo
+passsword: bar
+server:    imap.gmail.com
+
+#
+#  Delete all messages in the spam folder.
+#
+folder:[Google#Mail]/Spam delete
+
+=for example end
+
+  More complex rules may be constructed, as described in the README
+ file accompanying this release.
+
+=cut
+
 
 
 =head1 AUTHOR
@@ -82,6 +135,7 @@ use File::Temp qw/ tempfile /;
 use Getopt::Long;
 use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
+use Pod::Usage;
 
 
 
