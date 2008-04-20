@@ -41,6 +41,11 @@ clean:
 	@find . -name '*~' -exec rm \{\} \;
 	@find . -name '*.bak' -exec rm \{\} \;
 	@find . -name '*.tmp' -exec rm \{\} \;
+	@if [ -d ./debian/sift ]; then rm -rf ./debian/sift ]; fi
+	@if [ -e build-stamp ]; then rm -f build-stamp; fi
+	@if [ -e sift.1 ]; then rm -f sift.1 ; fi
+
+
 
 #
 #  Show what has been changed in the local copy vs. the remote repository.
