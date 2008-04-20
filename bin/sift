@@ -266,8 +266,8 @@ sub findLoginField
     }
     close(INPUT);
 
-    $result =~ s/^\s+//;
-    $result =~ s/\s+$//;
+    $result =~ s/^\s+// if ( defined( $result ) );
+    $result =~ s/\s+$// if ( defined( $result ) );
 
     return ($result);
 }
