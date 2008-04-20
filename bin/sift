@@ -79,92 +79,198 @@ The LICENSE file contains the full text of the license.
 use strict;
 use warnings;
 use File::Temp qw/ tempfile /;
+use Getopt::Long;
 use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
 
 
 
 #
-#  Get the file to read
+#  Configuration variables.
 #
-my $filename = shift;
+my %CONFIG;
 
-if ( !defined($filename) )
+
+#
+#  Global connection handle
+#
+my $imap;
+
+
+
+#
+#  Parse command line arguments.
+#
+parseCommandLineArguments();
+
+
+#
+#  Are there files specified upon the command line?
+#
+foreach my  $file  ( @ARGV )
 {
-    print "Usage: $0 filename\n";
-    exit;
+
+    my $username = $CONFIG{'username'} || findUsername( $file ) || undef;
+    my $password = $CONFIG{'password'} || findPassword( $file ) || undef;
+    my $server   = $CONFIG{'server'}   || findServer( $file ) || undef;
+
+    if ( !defined( $username ) ||
+         !defined( $password ) )
+    {
+        print "Username / Password not found for file: $file\n";
+        exit;
+    }
+    if ( !defined( $server ) )
+    {
+        print "IMAP server unknown.\n";
+        exit;
+    }
+
+    #
+    #  Login
+    #
+    $imap = login( $server, $username, $password );
+
+    #
+    #  Run the file.
+    #
+    processRules( $file );
+
+    #
+    #  Logout.
+    #
+    $imap->quit();
 }
-if ( !-e $filename )
-{
-    print "File not found: $filename\n";
-}
 
-
-
-my ( $username, $password ) = findLogin($filename);
-
-
-#
-#  Login
-#
-my $imap = login( $username, $password );
-
-
-
-#
-#  Now process each rule.
-#
-processRules($filename);
 
 
 #
 #  All done.
 #
-$imap->quit();
 exit;
+
 
 
 
 =begin doc
 
-  Find login details from our configuration file.
+  Process the command line arguments.
 
 =end doc
 
 =cut
 
-sub findLogin
+sub parseCommandLineArguments
 {
-    my ($file) = (@_);
+    my $HELP    = 0;
+    my $MANUAL  = 0;
+
+    #
+    #  Parse options.
+    #
+    GetOptions(
+
+        # Help options
+        "help",        \$HELP,
+        "manual",      \$MANUAL,
+        "verbose",     \$CONFIG{ 'verbose' },
+
+               # login details
+        "user=s", \$CONFIG{'username'},
+        "pass=s", \$CONFIG{'password'},
+        "server=s", \$CONFIG{'server'},
+    );
+
+    pod2usage(1) if $HELP;
+    pod2usage( -verbose => 2 ) if $MANUAL;
+
+}
+
+
+
+=begin doc
+
+  Find the username from the given configuration script / file.
+
+=end doc
+
+=cut
+
+sub findUsername
+{
+    my ( $file ) = ( @_ );
+
+    return( findLoginField( "username", $file ) );
+}
+
+
+=begin doc
+
+  Find the password from the given configuration file / script.
+
+=end doc
+
+=cut
+
+sub findPassword
+{
+    my ( $file ) = ( @_ );
+
+    return( findLoginField( "password", $file ) );
+}
+
+
+=begin doc
+
+  Find the server from the given configuration file / script.
+
+=end doc
+
+=cut
+
+sub findServer
+{
+    my ( $file ) = ( @_ );
+
+    return( findLoginField( "server", $file ) );
+}
+
+
+
+=begin doc
+
+  Find username / password details from our configuration file.
+
+=end doc
+
+=cut
+
+sub findLoginField
+{
+    my ($field, $file) = (@_);
 
     open( INPUT, "<", $file )
       or die "failed to read $file - $!";
 
-    my $u;
-    my $p;
+    my $result = undef;
 
     while ( my $line = <INPUT> )
     {
         next if ( !$line );
         chomp($line);
 
-        if ( $line =~ /username:(.*)/ )
+        if ( ( $line =~ /^\Q$field\E:(.*)/i ) &&
+             ( !defined( $result ) ) )
         {
-            $u = $1;
-        }
-        if ( $line =~ /password:(.*)/i )
-        {
-            $p = $1;
+            $result = $1;
         }
     }
     close(INPUT);
 
-    $u =~ s/^\s+//;
-    $u =~ s/\s+$//;
-    $p =~ s/^\s+//;
-    $p =~ s/\s+$//;
+    $result =~ s/^\s+//;
+    $result =~ s/\s+$//;
 
-    return ( $u, $p );
+    return ( $result );
 }
 
 
@@ -179,14 +285,14 @@ sub findLogin
 
 sub login
 {
-    my ( $user, $pass ) = (@_);
+    my ( $server, $user, $pass ) = (@_);
 
 
     #
     #  Connect
     #
-    my $imap = Net::IMAP::Simple::SSL->new('imap.gmail.com')
-      or die "Unable to connect to IMAP server.\n";
+    my $imap = Net::IMAP::Simple::SSL->new( $server )
+      or die "Unable to connect to IMAP server: '$server'.\n";
 
 
     #
