@@ -442,7 +442,7 @@ sub processRules
                 # "new" or "read".
                 #
                 my $state = $1;
-                if ( ( $state =~ /^new$/i )
+                if ( ( $state =~ /^new$/i ) ||
                      ( $state =~ /^read$/i ) )
                 {
                     print "Marking as read\n";
