@@ -1,56 +1,84 @@
 sift
-----/
+----
 
+  sift is a simple utility which is designed to allow you to conduct
+ operations upon the messages located upon a remote IMAP server.
 
-  This is a simple project which is designed to allow you to conduct
- operations upon the messages maintained on a remote IMAP server.
-
-  So far this code has only been tested against the Googlamil service,
+  So far this code has only been tested against the Googlemail service,
  but I'd anticipate it should work regardless of IMAP server.
 
-   Usage is non-documented at the moment, except for this short
- configuration example:
+  Usage is pretty straightforward.
 
-siftrc:
---
 
+
+Sample Usage
+------------
+
+  To get started you'll need to write a rule or two, then pass that
+ file onto sift.
+
+  Here is one of the simplest possible rulefiles:
+
+/--------------------------------
+server:   imap.gmail.com
 username: somebody.says
 password: testing
 
-folder:cm status:new subject:blackvelvet mark:read exec:"notify"
---
+folder:inbox status:new mark:read
+\--------------------------------------
+
+
+  What this does is mark all new messages in the "inbox" as being read.
 
 
 
-Operations
-----------
+How Sift Works
+--------------
 
-  All operations have a notion of the working set.  By default when
- a folder is opened each message is included in that working set.
+  Each sift rule is considered as part of a chain.  By default when you
+ select a folder to open *all* messages are selected.
 
-  The set may be reduced by filtering on status, subject, or body-content.
+  Rules in the chain have two purposes:
 
-  For example the following selects all messages:
+   1.  Refine the list of selected messages.
 
-folder:foo
-
-  This selects all new messages in the folder:
-
-folder:foo status:new
+   2.  Perform an operation upon the currently selected messages.
 
 
-  Filters are chained, so this next example selects all messages containing
- "foo" in the subject which are new:
+  For example this will select all messages:
 
-folder:foo status:new subject:foo
+"folder:inbox"
+
+  This will delete all messages:
+
+"folder:inbox delete"
+
+  Why does that work?  Because the act of opening a folder selects all
+ messages, and the "delete" operation deletes all currently selected
+ messages.
+
+  To refine thing you may reduce the messages selected by filtering on
+ different fields.  For example:
+
+"folder:inbox subject:foo delete"
+
+  This will reduce the selection of all messages to all message containing
+ the word "foo" in their title - then delete just those.
 
 
 
 Primitives
 ----------
 
+  As explained there are two types of primitives, or rules, available.
+ Those that change the selected messages on some criteria, and those that
+ operate upon the list of selected messages.  These are known as either
+ "selection" or "operation" rules.
 
-   subject: foo
+
+Selection Rules:
+
+   subject:foo
      Reduce the working set to those messages which contain 'foo' in the
     subject.
 
@@ -58,9 +86,12 @@ Primitives
      Reduce the working set to those messags which contain 'bar@bar.com'
     in the sender adress
 
-   status:[new|read]
-     Select only messags with the given state.
+   status:[new|old]
+     Select only messags with the given state.  "new" means unread, and
+    "old" means messages that have been read.
 
+
+Operation Rules:
 
     delete
      Delete all currently selected messages.
@@ -71,6 +102,25 @@ Primitives
     mark:[read|unread]
      Mark all selected messages as either read/unread.
 
+    exec:/usr/local/bin/foo
+     Run the program "/usr/local/bin/foo" with the body of each selected
+    message passed as STDIN.  This program is executed once for each
+    selected message.
+
+    execonce:/usr/local/bin/foo
+     Run the program "/usr/local/bin/foo".  This runs the program only
+    once regardless of the number of selected messages.
+
+    dump
+     Provide a brief list of the selected messages, their sender, recipient,
+    and subject.
+
+
+
+Feedback?
+---------
+
+  Comments welcome to the author.
 
 
 Steve

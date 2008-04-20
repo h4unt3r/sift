@@ -1,7 +1,11 @@
 #
+#  A configuration / rulefile for the sift IMAP utility.
+#
+
+#
 # Login details for the googlemail IMAP account.
 #
-server: imap.gmail.cm
+server:   imap.gmail.cm
 username: blah.blah
 password: xxxx
 
@@ -9,7 +13,7 @@ password: xxxx
 #
 #  Now we have a rule.
 #
-#  THis rule is in five parts:
+#  This rule is in five parts:
 #
 #  folder:livejournal    -> This changes to the livejournal folder
 #                           and selects all messages.
