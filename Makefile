@@ -71,6 +71,8 @@ release: tidy clean
 	cp -R . $(DIST_PREFIX)/$(BASE)-$(VERSION)
 	perl -pi.bak -e "s/UNRELEASED/$(VERSION)/g" $(DIST_PREFIX)/$(BASE)-$(VERSION)/bin/sift
 	rm  $(DIST_PREFIX)/$(BASE)-$(VERSION)/bin/*.bak
+	rm -rf $(DIST_PREFIX)/$(BASE)-$(VERSION)/.hg*
+	rm -f $(DIST_PREFIX)/$(BASE)-$(VERSION)/.release
 	find  $(DIST_PREFIX)/$(BASE)-$(VERSION)/ -name "*steve*" -print | xargs rm -rf
 	rm -rf $(DIST_PREFIX)/$(BASE)-$(VERSION)/debian
 	cd $(DIST_PREFIX) && tar -cvf $(DIST_PREFIX)/$(BASE)-$(VERSION).tar $(BASE)-$(VERSION)/
