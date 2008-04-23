@@ -482,8 +482,6 @@ sub login
   Read the specified rule-file, and process each line which
  appears to be valid.
 
-  The line is split into tokens and each one is executed in order.
-
 =end doc
 
 =cut
@@ -518,6 +516,9 @@ sub processRules
 
   Process a single rule-line read from the configuration file.
 
+  The line is split into tokens and each one is executed in order,
+ if it is recognised.
+
 =end doc
 
 =cut
@@ -542,7 +543,6 @@ sub processRule
     #
     foreach my $token ( split( / /, $line ) )
     {
-
         #
         #  Change folder.  Mark all messages as current.
         #
@@ -560,6 +560,16 @@ sub processRule
             #
             $folder =~ s/##/#/g if ($folder);
 
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$folder )
+            {
+                print "Error - folder: requires an argument\n";
+                next;
+            }
+
+            #
             #
             #  Select the folder.
             #
@@ -589,6 +599,16 @@ sub processRule
             # be those that are of the given status.
             #
             my $status = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$status )
+            {
+                print "Error - status: requires an argument\n";
+                next;
+            }
+
             if (    ( $status =~ /^new$/i )
                  || ( $status =~ /^unread$/i ) )
             {
@@ -597,13 +617,17 @@ sub processRule
                 my $c = scalar(@messages);
                 $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
             }
-            if (    ( $status =~ /^old$/i )
+            elsif (    ( $status =~ /^old$/i )
                  || ( $status =~ /^read$/i ) )
             {
                 $CONFIG{ 'verbose' } && print "Finding old messages\n";
                 @messages = findRead($count);
                 my $c = scalar(@messages);
                 $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
+            }
+            else
+            {
+                print "WARNING: Ignoring unknown status type '$status'\n";
             }
         }
         elsif ( $token =~ /mark:(.*)/i )
@@ -623,6 +647,17 @@ sub processRule
             # "new" or "read".
             #
             my $state = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$state )
+            {
+                print "Error - status: requires an argument\n";
+                next;
+            }
+
+
             if (    ( $state =~ /^new$/i )
                  || ( $state =~ /^read$/i ) )
             {
@@ -637,7 +672,7 @@ sub processRule
                     );
                 }
             }
-            if (    ( $state =~ /^unread$/i )
+            elsif (    ( $state =~ /^unread$/i )
                  || ( $state =~ /^old$/i ) )
             {
                 $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
@@ -651,6 +686,10 @@ sub processRule
                     );
                 }
             }
+            else
+            {
+                print "WARNING:  Ignoring unknown status type '$state'\n";
+            }
         }
         elsif ( $token =~ /subject:(.*)/i )
         {
@@ -660,6 +699,17 @@ sub processRule
             # don't match the given subject string.
             #
             my $subject = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$subject )
+            {
+                print "Error - subject: requires an argument\n";
+                next;
+            }
+
+
             $CONFIG{ 'verbose' }
               && print "Looking messages with subject matching: $subject\n";
 
@@ -702,6 +752,18 @@ sub processRule
             # don't match the given subject string.
             #
             my $sender = $1;
+
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$sender )
+            {
+                print "Error - from: requires an argument\n";
+                next;
+            }
+
+
             $CONFIG{ 'verbose' }
               && print "Looking messages with sender matching: $sender\n";
 
@@ -745,6 +807,16 @@ sub processRule
             # the number of matches.
             #
             my $prog = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$prog )
+            {
+                print "Error - execonce: requires an argument\n";
+                next;
+            }
+
             $prog =~ s/^\s+//;
             $prog =~ s/\s+$//;
 
@@ -765,6 +837,17 @@ sub processRule
             # message.
             #
             my $prog = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$prog )
+            {
+                print "Error - exec: requires an argument\n";
+                next;
+            }
+
+
             $prog =~ s/^\s+//;
             $prog =~ s/\s+$//;
 
@@ -872,6 +955,17 @@ EOF
             #  Move all selected messages to the specified folder.
             #
             my $dest = $1;
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$dest )
+            {
+                print "Error - move: requires an argument\n";
+                next;
+            }
+
+
             $dest =~ s/^\s+//;
             $dest =~ s/\s+$//;
 
@@ -903,6 +997,18 @@ EOF
             #  Copy all selected messages to the specified folder.
             #
             my $dest = $1;
+
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$dest )
+            {
+                print "Error - copy: requires an argument\n";
+                next;
+            }
+
+
             $dest =~ s/^\s+//;
             $dest =~ s/\s+$//;
 
@@ -922,6 +1028,13 @@ EOF
                 $CONFIG{ 'verbose' } && print "\t$id\n";
                 $imap->copy( $id, $dest );
             }
+        }
+        else
+        {
+            #
+            #  Failed to find the token
+            #
+            print "WARNING: Uknown rule/token : $token\n";
         }
     }
 }
