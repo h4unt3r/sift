@@ -228,6 +228,7 @@ foreach my $file (@ARGV)
     #
     if ( !defined($imap) )
     {
+
         #
         #  We need to find the login details.
         #
@@ -236,9 +237,9 @@ foreach my $file (@ARGV)
         #  If they aren't in the file then we'll use the command
         # line version(s) as a fall-back.
         #
-        my $username = findUsername($file) || $CONFIG{'username'} || undef;
-        my $password = findPassword($file) || $CONFIG{'password'} || undef;
-        my $server   = findServer($file)   || $CONFIG{'server'}   || undef;
+        my $username = findUsername($file) || $CONFIG{ 'username' } || undef;
+        my $password = findPassword($file) || $CONFIG{ 'password' } || undef;
+        my $server   = findServer($file)   || $CONFIG{ 'server' }   || undef;
         my $ssl      = $CONFIG{ 'ssl' }    || 0;
 
         if ( !defined($username) )
@@ -543,6 +544,7 @@ sub processRule
     #
     foreach my $token ( split( / /, $line ) )
     {
+
         #
         #  Change folder.  Mark all messages as current.
         #
@@ -618,7 +620,7 @@ sub processRule
                 $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
             }
             elsif (    ( $status =~ /^old$/i )
-                 || ( $status =~ /^read$/i ) )
+                    || ( $status =~ /^read$/i ) )
             {
                 $CONFIG{ 'verbose' } && print "Finding old messages\n";
                 @messages = findRead($count);
@@ -673,7 +675,7 @@ sub processRule
                 }
             }
             elsif (    ( $state =~ /^unread$/i )
-                 || ( $state =~ /^old$/i ) )
+                    || ( $state =~ /^old$/i ) )
             {
                 $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
                 foreach my $id (@messages)
@@ -1031,6 +1033,7 @@ EOF
         }
         else
         {
+
             #
             #  Failed to find the token
             #
