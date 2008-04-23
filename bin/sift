@@ -228,9 +228,17 @@ foreach my $file (@ARGV)
     #
     if ( !defined($imap) )
     {
-        my $username = findUsername($file) || undef;
-        my $password = findPassword($file) || undef;
-        my $server   = findServer($file)   || undef;
+        #
+        #  We need to find the login details.
+        #
+        #  Ideally these will come from the file, to allow them to
+        # override the command line.
+        #  If they aren't in the file then we'll use the command
+        # line version(s) as a fall-back.
+        #
+        my $username = findUsername($file) || $CONFIG{'username'} || undef;
+        my $password = findPassword($file) || $CONFIG{'password'} || undef;
+        my $server   = findServer($file)   || $CONFIG{'server'}   || undef;
         my $ssl      = $CONFIG{ 'ssl' }    || 0;
 
         if ( !defined($username) )
@@ -428,7 +436,8 @@ sub findLoginField
 
 =begin doc
 
-  Login to the remote server.
+  Login to the remote server, and return a connected IMAP object if
+ that succeeded.  Error on failure.
 
 =end doc
 
@@ -470,8 +479,10 @@ sub login
 
 =begin doc
 
-  Read the specified configuration file, and process each line which
+  Read the specified rule-file, and process each line which
  appears to be valid.
+
+  The line is split into tokens and each one is executed in order.
 
 =end doc
 
