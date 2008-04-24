@@ -734,7 +734,7 @@ sub processRule
                              && ( !$found ) )
                         {
                             push( @matches, $id );
-                            $CONFIG{'verbose'} &&  print "\tmatch: found\n";
+                            $CONFIG{ 'verbose' } && print "\tmatch: found\n";
                             $found += 1;
                         }
                     }
@@ -788,7 +788,7 @@ sub processRule
                              && ( !$found ) )
                         {
                             push( @matches, $id );
-                            $CONFIG{'verbose'} && print "\tmatch: found\n";
+                            $CONFIG{ 'verbose' } && print "\tmatch: found\n";
                             $found += 1;
                         }
                     }
