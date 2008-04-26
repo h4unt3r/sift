@@ -1,3 +1,13 @@
+sift (0.3-1) unstable; urgency=low
+
+  * New release
+    - Added better error handling.
+    - Allow login details to come from the command line.
+    - More consistent argument handling.
+    - Removed all output unless running under --verbose
+
+ -- Steve Kemp <steve@steve.org.uk>  Sat, 26 Apr 2008 10:22:01 +0000
+
 sift (0.2-1) unstable; urgency=low
 
   * New release
