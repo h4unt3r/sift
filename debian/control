@@ -11,7 +11,7 @@ Architecture: all
 Depends: ${perl:Depends}, libnet-imap-simple-ssl-perl, perl-modules
 Description: A scriptable IMAP client utility.
  This is a tool which allows you to manipulate the contents of a remote
- IMAP server via a collection of simple rules.
+ IMAP server via a collection simple rulefiles.
  .
  There are primitives for:
  .
@@ -21,5 +21,4 @@ Description: A scriptable IMAP client utility.
  .
   * Moving, Copying, and Deleting messages.
  .
- So far this has only been tested against Google's IMAP server, but it
- should be portable, and any regression is a bug.
+ The tool may be used for many ad-hoc IMAP manipulation purposes.

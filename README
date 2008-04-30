@@ -4,18 +4,13 @@ sift
   sift is a simple utility which is designed to allow you to conduct
  operations upon the messages located upon a remote IMAP server.
 
-  So far this code has only been tested against the Googlemail service,
- but I'd anticipate it should work regardless of IMAP server.
-
-  Usage is pretty straightforward.
-
 
 
 Sample Usage
 ------------
 
   To get started you'll need to write a rule or two, then pass that
- file onto sift.
+ file as an argument to sift.
 
   Here is one of the simplest possible rulefiles:
 
@@ -28,7 +23,7 @@ folder:inbox status:new mark:read
 \--------------------------------------
 
 
-  What this does is mark all new messages in the "inbox" as being read.
+  This marks all new messages in the "inbox" as being read.
 
 
 
