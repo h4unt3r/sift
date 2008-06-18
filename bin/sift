@@ -314,27 +314,32 @@ sub parseCommandLineArguments
     #
     #  Parse options.
     #
-    GetOptions(
+    if (
+        !GetOptions(
 
-        # Help options
-        "help",    \$HELP,
-        "manual",  \$MANUAL,
-        "version", \$VERSION,
-        "verbose", \$CONFIG{ 'verbose' },
+            # Help options
+            "help",    \$HELP,
+            "manual",  \$MANUAL,
+            "version", \$VERSION,
+            "verbose", \$CONFIG{ 'verbose' },
 
 
-        # login details
-        "user=s",   \$CONFIG{ 'username' },
-        "pass=s",   \$CONFIG{ 'password' },
-        "server=s", \$CONFIG{ 'server' },
+            # login details
+            "user=s",   \$CONFIG{ 'username' },
+            "pass=s",   \$CONFIG{ 'password' },
+            "server=s", \$CONFIG{ 'server' },
 
-        # use SSL?
-        "ssl", \$CONFIG{ 'ssl' },
+            # use SSL?
+            "ssl", \$CONFIG{ 'ssl' },
 
-        # execute directly?
-        "execute=s", \$CONFIG{ 'execute' },
+            # execute directly?
+            "execute=s", \$CONFIG{ 'execute' },
 
-    );
+        )
+      )
+    {
+        exit;
+    }
 
     pod2usage(1) if $HELP;
     pod2usage( -verbose => 2 ) if $MANUAL;
