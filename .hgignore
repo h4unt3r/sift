@@ -5,6 +5,7 @@
 syntax: glob
 ./*steve*
 ./debian/*.substvars
+./debian/sift.debhelper.log
 ./debian/files
 ./debian/sift/*
 ./sift.1
