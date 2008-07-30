@@ -861,6 +861,75 @@ sub processRule
               . scalar(@messages)
               . " matching message(s)\n";
         }
+        elsif ( $token =~ /\!*To:(.*)/i )
+        {
+
+            #
+            #  Filter all current messages to remove those that
+            # don't match the given recipient
+            #
+            my $recipient = $1;
+
+
+            #
+            #  Inverted search?
+            #
+            my $invert = 0;
+            $invert = 1 if ( $token =~ /^\!/ );
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$recipient )
+            {
+                print "Error - to: requires an argument\n";
+                next;
+            }
+
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
+
+            if ( $CONFIG{ 'verbose' } )
+            {
+                if ($invert)
+                {
+                    print
+                      "Looking messages with recipient NOT matching: $recipient\n";
+                }
+                else
+                {
+                    print "Looking messages with recipient matching: $recipient\n";
+                }
+            }
+
+            my @matches;
+
+            foreach my $id (@messages)
+            {
+                my $msg = $imap->get($id);
+
+                if ($msg)
+                {
+
+                    #
+                    #  Do the search
+                    #
+                    if ( matchMessageHeader( $msg, "To", $recipient, $invert ) )
+                    {
+                        push( @matches, $id );
+                        $CONFIG{ 'verbose' }
+                          && print "\tmatch: found\n";
+                    }
+                }
+            }
+            @messages = @matches;
+            $CONFIG{ 'verbose' }
+              && print "\tFound "
+              . scalar(@messages)
+              . " matching message(s)\n";
+        }
         elsif ( $token =~ /execonce:(.*)/i )
         {
 
@@ -1253,15 +1322,17 @@ sub matchMessageHeader
 
             if ($invert)
             {
-                if ( $val !~ /\Q$value\E/i )
+                if ( $val !~ /$value/i )
                 {
+                    $CONFIG{'verbose'} && print "Matched: $value\n";
                     return 1;
                 }
             }
             else
             {
-                if ( $val =~ /\Q$value\E/i )
+                if ( $val =~ /$value/i )
                 {
+                    $CONFIG{'verbose'} && print "Matched: $value\n";
                     return 1;
                 }
             }
@@ -1270,3 +1341,5 @@ sub matchMessageHeader
 
     return 0;
 }
+
+
