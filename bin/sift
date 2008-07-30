@@ -720,15 +720,15 @@ sub processRule
 
 
             #
-            #  Exclude?
+            #  Inverted search?
             #
-            my $exclude = 0;
-            $exclude = 1 if ( $token =~ /^\!/ );
+            my $invert = 0;
+            $invert = 1 if ( $token =~ /^\!/ );
 
 
             if ( $CONFIG{ 'verbose' } )
             {
-                if ($exclude)
+                if ($invert)
                 {
                     print
                       "Looking messages with subject NOT matching: $subject\n";
@@ -747,38 +747,12 @@ sub processRule
 
                 if ($msg)
                 {
-                    my $found = 0;
-
-                    foreach my $line (@$msg)
+                    if ( matchMessageHeader( $msg, "Subject",
+                                             $subject, $invert ) )
                     {
-                        next if ($found);
-
-                        # find the subject.
-                        if (    ( $line =~ /^Subject:/ )
-                             && ( !$found ) )
-                        {
-
-                            if ($exclude)
-                            {
-                                if ( $line !~ /\Q$subject\E/i )
-                                {
-                                    push( @matches, $id );
-                                    $CONFIG{ 'verbose' }
-                                      && print "\tmatch: found\n";
-                                    $found += 1;
-                                }
-                            }
-                            else
-                            {
-                                if ( $line =~ /\Q$subject\E/i )
-                                {
-                                    push( @matches, $id );
-                                    $CONFIG{ 'verbose' }
-                                      && print "\tmatch: found\n";
-                                    $found += 1;
-                                }
-                            }
-                        }
+                        push( @matches, $id );
+                        $CONFIG{ 'verbose' }
+                          && print "\tmatch: found\n";
                     }
                 }
             }
@@ -799,10 +773,10 @@ sub processRule
 
 
             #
-            #  Exclude?
+            #  Inverted search?
             #
-            my $exclude = 0;
-            $exclude = 1 if ( $token =~ /^\!/ );
+            my $invert = 0;
+            $invert = 1 if ( $token =~ /^\!/ );
 
             #
             #  Ensure we got an argument.
@@ -816,7 +790,7 @@ sub processRule
 
             if ( $CONFIG{ 'verbose' } )
             {
-                if ($exclude)
+                if ($invert)
                 {
                     print
                       "Looking messages with sender NOT matching: $sender\n";
@@ -835,37 +809,14 @@ sub processRule
 
                 if ($msg)
                 {
-                    my $found = 0;
-
-                    foreach my $line (@$msg)
+                    #
+                    #  Do the search
+                    #
+                    if ( matchMessageHeader( $msg, "From", $sender, $invert ) )
                     {
-                        next if ($found);
-
-                        # look for the from
-                        if (    ( $line =~ /^From:/ )
-                             && ( !$found ) )
-                        {
-                            if ($exclude)
-                            {
-                                if ( $line !~ /\Q$sender\E/i )
-                                {
-                                    push( @matches, $id );
-                                    $CONFIG{ 'verbose' }
-                                      && print "\tmatch: found\n";
-                                    $found += 1;
-                                }
-                            }
-                            else
-                            {
-                                if ( $line =~ /\Q$sender\E/i )
-                                {
-                                    push( @matches, $id );
-                                    $CONFIG{ 'verbose' }
-                                      && print "\tmatch: found\n";
-                                    $found += 1;
-                                }
-                            }
-                        }
+                        push( @matches, $id );
+                        $CONFIG{ 'verbose' }
+                          && print "\tmatch: found\n";
                     }
                 }
             }
@@ -1194,4 +1145,66 @@ sub findRead
     }
 
     return (@matches);
+}
+
+
+
+=begin doc
+
+  Match a given value in the named header. Optionally invert the
+ matching.
+
+=end doc
+
+=cut
+
+sub matchMessageHeader
+{
+    my( $message, $header, $value, $invert ) = ( @_ );
+
+    # invert is optional - so ensure it is defined.
+    $invert = 0 if ( !defined($invert ) );
+
+    # no message? no match.
+    return 0 if ( ( !$message ) ||( !@$message ) );
+
+
+    my $found = 0;
+
+    foreach my $line (@$message)
+    {
+        next if ($found);
+
+        if (    ( $line =~ /^\Q$header\E:(.*)/ )
+                && ( !$found ) )
+        {
+            #
+            #  OK we have the header.
+            #
+            my $val = $1;
+
+            #
+            #  Strip linefeeds / linebreaks
+            #
+            $val =~ s/[\r\n]//g;
+            $CONFIG{'verbose'} && print "Found header '$header' - '$val'\n";
+
+            if ($invert)
+            {
+                if ( $val !~ /\Q$value\E/i )
+                {
+                    return 1;
+                }
+            }
+            else
+            {
+                if ( $val =~ /\Q$value\E/i )
+                {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
 }
