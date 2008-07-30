@@ -3,7 +3,7 @@ Section: utils
 Priority: extra
 Maintainer: Steve Kemp <steve@steve.org.uk>
 Build-Depends: debhelper (>= 5)
-Standards-Version: 3.7.3
+Standards-Version: 3.8.0
 Homepage: http://www.steve.org.uk/Software/sift/
 
 Package: sift
