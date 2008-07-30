@@ -603,8 +603,8 @@ sub processRule
             #
             #  Remove existing cache, if present.
             #
-            if ( ( $CONFIG{ 'cache' } ) &&
-                 ( -d $CONFIG{'cache'} ) )
+            if (    ( $CONFIG{ 'cache' } )
+                 && ( -d $CONFIG{ 'cache' } ) )
             {
                 $CONFIG{ 'verbose' } && print "Removing old folder cache\n";
                 system("rm -rf $CONFIG{'cache'}");
