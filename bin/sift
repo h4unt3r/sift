@@ -17,8 +17,9 @@ sift - A scriptable IMAP utility program.
 
   Misc Options:
 
-   --ssl          Force the use of SSL.
+   --dry-run      Don't execute anything.
    --execute      Specify a rule to execute directly.
+   --ssl          Force the use of SSL.
 
 =cut
 
@@ -329,11 +330,14 @@ sub parseCommandLineArguments
             "pass=s",   \$CONFIG{ 'password' },
             "server=s", \$CONFIG{ 'server' },
 
-            # use SSL?
-            "ssl", \$CONFIG{ 'ssl' },
+            # dry run?
+            "dry-run", \$CONFIG{ 'dry-run' },
 
             # execute directly?
             "execute=s", \$CONFIG{ 'execute' },
+
+            # use SSL?
+            "ssl", \$CONFIG{ 'ssl' },
 
         )
       )
@@ -477,7 +481,6 @@ sub login
     $imap->login( $user, $pass )
       or die "Login failed :" . $imap->errstr . "\n";
 
-    $CONFIG{ 'verbose' } && print "\tOK\n";
     return ($imap);
 }
 
@@ -547,8 +550,14 @@ sub processRule
     #  Break the list of rules up into a collection of space-separated
     # tokens.
     #
-    foreach my $token ( split( / /, $line ) )
+    foreach my $token ( split( /[ \t]/, $line ) )
     {
+
+        #
+        #  Skip blank tokens
+        #
+        next if ( !length($token) || ( $token =~ /^([\t ]+)$/ ) );
+
         $CONFIG{ 'verbose' } && print "TOKEN: $token\n";
 
         #
@@ -576,6 +585,11 @@ sub processRule
                 print "Error - folder: requires an argument\n";
                 next;
             }
+
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             #
             #
@@ -616,6 +630,12 @@ sub processRule
                 print "Error - status: requires an argument\n";
                 next;
             }
+
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
+
 
             if (    ( $status =~ /^new$/i )
                  || ( $status =~ /^unread$/i ) )
@@ -665,6 +685,10 @@ sub processRule
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             if (    ( $state =~ /^new$/i )
                  || ( $state =~ /^read$/i ) )
@@ -718,6 +742,10 @@ sub processRule
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             #
             #  Inverted search?
@@ -789,6 +817,10 @@ sub processRule
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             if ( $CONFIG{ 'verbose' } )
             {
@@ -847,6 +879,12 @@ sub processRule
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
+
+
             $prog =~ s/^\s+//;
             $prog =~ s/\s+$//;
 
@@ -877,6 +915,10 @@ sub processRule
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             $prog =~ s/^\s+//;
             $prog =~ s/\s+$//;
@@ -949,6 +991,12 @@ sub processRule
             }
 
             #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
+
+
+            #
             #  Dump details of the message
             #
             my $to      = '';
@@ -995,6 +1043,10 @@ EOF
                 next;
             }
 
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
             $dest =~ s/^\s+//;
             $dest =~ s/\s+$//;
@@ -1037,6 +1089,12 @@ EOF
                 print "Error - copy: requires an argument\n";
                 next;
             }
+
+
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
 
 
             $dest =~ s/^\s+//;
