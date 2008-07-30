@@ -35,7 +35,7 @@ folder:livejournal status:new subject:velvet mark:read exec:/usr/local/bin/f
 
 
 #
-#  Another rule simple rule.
+#  Another simple rule.
 #
 #  Delete all messages in the spam folder.
 #
