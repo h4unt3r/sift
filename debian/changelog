@@ -1,3 +1,16 @@
+sift (0.4-1) unstable; urgency=low
+
+  * New release
+    - Added new primitive "to", for matching message recipient.
+    - Added new primitive "body", for matching message bodies.
+    - Allows "to" "from" and "subject" matching to be inverted.
+      (For example "!from:foo@bar.com" - means messages not from foo@bar.com)
+    - Use full regexps for matching messsage sender, recipient, or
+      subjects.
+    - Added caching, and dry-run command line arguments
+
+ -- Steve Kemp <steve@steve.org.uk>  Wed, 30 Jul 2008 10:52:52 +0000
+
 sift (0.3-1) unstable; urgency=low
 
   * New release
