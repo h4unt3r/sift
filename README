@@ -9,8 +9,9 @@ sift
 Sample Usage
 ------------
 
-  To get started you'll need to write a rule or two, then pass that
- file as an argument to sift.
+  To get started you'll need to create a text file containing your
+ login details and a collection of rules.  Then you may pass that
+ filename as an argument to sift.
 
   Here is one of the simplest possible rulefiles:
 
@@ -37,7 +38,7 @@ How Sift Works
 
    1.  Refine the list of selected messages.
 
-   2.  Perform an operation upon the currently selected messages.
+   2.  Perform an operation upon ech of the currently selected messages.
 
 
   For example this will select all messages:
@@ -58,7 +59,7 @@ How Sift Works
 "folder:inbox subject:foo delete"
 
   This will reduce the selection of all messages to all message containing
- the word "foo" in their title - then delete just those.
+ the word "foo" in their title - then delete them.
 
 
 
@@ -66,7 +67,8 @@ Primitives
 ----------
 
   As explained there are two types of primitives, or rules, available.
- Those that change the selected messages on some criteria, and those that
+
+  Those that change the selected messages on some criteria, and those that
  operate upon the list of selected messages.  These are known as either
  "selection" or "operation" rules.
 
@@ -118,13 +120,13 @@ Selection Rules:
 Operation Rules:
 
     copy:bar
-     Copy all currently selected messages into the folder 'bar'.
+     Copy all currently selected messages to the folder 'bar'.
 
     delete
      Delete all currently selected messages.
 
     move:bar
-     Move all currently selected messages into the new folder 'bar'.
+     Move all currently selected messages into the folder 'bar'.
 
     mark:[read|unread]
      Mark all selected messages as either read/unread.
