@@ -747,8 +747,10 @@ sub processRule
 
                 if ($msg)
                 {
-                    if ( matchMessageHeader( $msg, "Subject",
-                                             $subject, $invert ) )
+                    if (
+                         matchMessageHeader( $msg, "Subject", $subject, $invert
+                         )
+                      )
                     {
                         push( @matches, $id );
                         $CONFIG{ 'verbose' }
@@ -809,6 +811,7 @@ sub processRule
 
                 if ($msg)
                 {
+
                     #
                     #  Do the search
                     #
@@ -1160,13 +1163,13 @@ sub findRead
 
 sub matchMessageHeader
 {
-    my( $message, $header, $value, $invert ) = ( @_ );
+    my ( $message, $header, $value, $invert ) = (@_);
 
     # invert is optional - so ensure it is defined.
-    $invert = 0 if ( !defined($invert ) );
+    $invert = 0 if ( !defined($invert) );
 
     # no message? no match.
-    return 0 if ( ( !$message ) ||( !@$message ) );
+    return 0 if ( ( !$message ) || ( !@$message ) );
 
 
     my $found = 0;
@@ -1176,8 +1179,9 @@ sub matchMessageHeader
         next if ($found);
 
         if (    ( $line =~ /^\Q$header\E:(.*)/ )
-                && ( !$found ) )
+             && ( !$found ) )
         {
+
             #
             #  OK we have the header.
             #
@@ -1187,7 +1191,7 @@ sub matchMessageHeader
             #  Strip linefeeds / linebreaks
             #
             $val =~ s/[\r\n]//g;
-            $CONFIG{'verbose'} && print "Found header '$header' - '$val'\n";
+            $CONFIG{ 'verbose' } && print "Found header '$header' - '$val'\n";
 
             if ($invert)
             {
