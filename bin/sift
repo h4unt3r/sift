@@ -604,7 +604,8 @@ sub processRule
             #
             #  Remove existing cache, if present.
             #
-            if ( $CONFIG{ 'cache' } )
+            if ( ( $CONFIG{ 'cache' } ) &&
+                 ( -d $CONFIG{'cache'} ) )
             {
                 $CONFIG{ 'verbose' } && print "Removing old folder cache\n";
                 system("rm -rf $CONFIG{'cache'}");
@@ -613,7 +614,7 @@ sub processRule
             #
             #  Create folder cache
             #
-            $CONFIG{ 'cache' } = tempdir( CLEANUP => 0 )
+            $CONFIG{ 'cache' } = tempdir( CLEANUP => 1 )
               unless ( $CONFIG{ 'no-cache' } );
 
 
@@ -1017,13 +1018,11 @@ sub processRule
             {
                 if ($invert)
                 {
-                    print
-"Looking messages with body NOT matching: $body\n";
+                    print "Looking messages with body NOT matching: $body\n";
                 }
                 else
                 {
-                    print
-                      "Looking messages with body matching: $body\n";
+                    print "Looking messages with body matching: $body\n";
                 }
             }
 
@@ -1477,7 +1476,7 @@ sub matchMessageHeader
 
 sub matchMessageBody
 {
-    my( $message, $term, $invert ) = ( @_ );
+    my ( $message, $term, $invert ) = (@_);
 
     # invert is optional - so ensure it is defined.
     $invert = 0 if ( !defined($invert) );
@@ -1490,13 +1489,14 @@ sub matchMessageBody
 
     foreach my $line (@$message)
     {
+
         # strip newline/linefeed.
-        $line =~ s/[\r\n]//g if ( defined( $line ) );
+        $line =~ s/[\r\n]//g if ( defined($line) );
 
         # end of the header?
         $body = 1 if ( $line =~ /^$/ );
 
-        if ( ( $body ) && ( $line =~ /$term/i ) )
+        if ( ($body) && ( $line =~ /$term/i ) )
         {
             $CONFIG{ 'verbose' } && print "Body line '$line' matches '$term'\n";
 
