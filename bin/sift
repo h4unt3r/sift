@@ -549,7 +549,7 @@ sub processRule
     #
     foreach my $token ( split( / /, $line ) )
     {
-
+        $CONFIG{'verbose'} && print "TOKEN: $token\n";
         #
         #  Change folder.  Mark all messages as current.
         #
@@ -698,7 +698,7 @@ sub processRule
                 print "WARNING:  Ignoring unknown status type '$state'\n";
             }
         }
-        elsif ( $token =~ /subject:(.*)/i )
+        elsif ( $token =~ /\!*subject:(.*)/i )
         {
 
             #
@@ -706,6 +706,7 @@ sub processRule
             # don't match the given subject string.
             #
             my $subject = $1;
+
 
             #
             #  Ensure we got an argument.
@@ -717,8 +718,24 @@ sub processRule
             }
 
 
-            $CONFIG{ 'verbose' }
-              && print "Looking messages with subject matching: $subject\n";
+            #
+            #  Exclude?
+            #
+            my $exclude = 0;
+            $exclude = 1 if ( $token =~ /^\!/ );
+
+
+            if ( $CONFIG{'verbose'} )
+            {
+                if ( $exclude )
+                {
+                    print "Looking messages with subject NOT matching: $subject\n";
+                }
+                else
+                {
+                    print "Looking messages with subject matching: $subject\n";
+                }
+            }
 
             my @matches;
 
@@ -734,13 +751,29 @@ sub processRule
                     {
                         next if ($found);
 
+                        # find the subject.
                         if (    ( $line =~ /^Subject:/ )
-                             && ( $line =~ /\Q$subject\E/i )
                              && ( !$found ) )
                         {
-                            push( @matches, $id );
-                            $CONFIG{ 'verbose' } && print "\tmatch: found\n";
-                            $found += 1;
+
+                            if ( $exclude )
+                            {
+                                if ( $line !~ /\Q$subject\E/i )
+                                {
+                                    push( @matches, $id );
+                                    $CONFIG{ 'verbose' } && print "\tmatch: found\n";
+                                    $found += 1;
+                                }
+                            }
+                            else
+                            {
+                                if ( $line =~ /\Q$subject\E/i )
+                                {
+                                    push( @matches, $id );
+                                    $CONFIG{ 'verbose' } && print "\tmatch: found\n";
+                                    $found += 1;
+                                }
+                            }
                         }
                     }
                 }
@@ -751,7 +784,7 @@ sub processRule
               . scalar(@messages)
               . " matching message(s)\n";
         }
-        elsif ( $token =~ /from:(.*)/i )
+        elsif ( $token =~ /\!*from:(.*)/i )
         {
 
             #
@@ -760,6 +793,12 @@ sub processRule
             #
             my $sender = $1;
 
+
+            #
+            #  Exclude?
+            #
+            my $exclude = 0;
+            $exclude = 1 if ( $token =~ /^\!/ );
 
             #
             #  Ensure we got an argument.
@@ -771,8 +810,17 @@ sub processRule
             }
 
 
-            $CONFIG{ 'verbose' }
-              && print "Looking messages with sender matching: $sender\n";
+            if ( $CONFIG{'verbose'} )
+            {
+                if ( $exclude )
+                {
+                    print "Looking messages with sender NOT matching: $sender\n";
+                }
+                else
+                {
+                    print "Looking messages with sender matching: $sender\n";
+                }
+            }
 
             my @matches;
 
@@ -788,13 +836,28 @@ sub processRule
                     {
                         next if ($found);
 
+                        # look for the from
                         if (    ( $line =~ /^From:/ )
-                             && ( $line =~ /\Q$sender\E/i )
                              && ( !$found ) )
                         {
-                            push( @matches, $id );
-                            $CONFIG{ 'verbose' } && print "\tmatch: found\n";
-                            $found += 1;
+                            if ( $exclude )
+                            {
+                                if  ( $line !~ /\Q$sender\E/i )
+                                {
+                                    push( @matches, $id );
+                                    $CONFIG{ 'verbose' } && print "\tmatch: found\n";
+                                    $found += 1;
+                                }
+                            }
+                            else
+                            {
+                                if  ( $line =~ /\Q$sender\E/i )
+                                {
+                                    push( @matches, $id );
+                                    $CONFIG{ 'verbose' } && print "\tmatch: found\n";
+                                    $found += 1;
+                                }
+                            }
                         }
                     }
                 }
@@ -802,8 +865,8 @@ sub processRule
             @messages = @matches;
             $CONFIG{ 'verbose' }
               && print "\tFound "
-              . scalar(@messages)
-              . " matching message(s)\n";
+                . scalar(@messages)
+                  . " matching message(s)\n";
         }
         elsif ( $token =~ /execonce:(.*)/i )
         {

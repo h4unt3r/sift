@@ -82,9 +82,17 @@ Selection Rules:
      Reduce the working set to those messages which contain 'foo' in the
     subject.
 
+   !subject:foo
+     Reduce the working set to those messages which do not contain 'foo'
+    in the subject.
+
    from:bar@bar.com
      Reduce the working set to those messags which contain 'bar@bar.com'
     in the sender adress
+
+   !from:bar@bar.com
+     Reduce the working set to those messags which do not contain
+    'bar@bar.com' in the sender adress
 
    status:[new|old]
      Select only messags with the given state.  "new" means unread, and
