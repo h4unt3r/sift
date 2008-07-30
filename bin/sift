@@ -753,6 +753,14 @@ sub processRule
             #
             my $subject = $1;
 
+            #
+            # Expansion:
+            #
+            #  "#"  -> " "
+            #  "##" -> "#"
+            #
+            $subject =~ s/([^#])#([^#])/$1 $2/g if ($subject);
+            $subject =~ s/##/#/g if ($subject);
 
             #
             #  Ensure we got an argument.
@@ -822,6 +830,14 @@ sub processRule
             #
             my $sender = $1;
 
+            #
+            # Expansion:
+            #
+            #  "#"  -> " "
+            #  "##" -> "#"
+            #
+            $sender =~ s/([^#])#([^#])/$1 $2/g if ($sender);
+            $sender =~ s/##/#/g if ($sender);
 
             #
             #  Inverted search?
@@ -891,6 +907,14 @@ sub processRule
             #
             my $recipient = $1;
 
+            #
+            # Expansion:
+            #
+            #  "#"  -> " "
+            #  "##" -> "#"
+            #
+            $recipient =~ s/([^#])#([^#])/$1 $2/g if ($recipient);
+            $recipient =~ s/##/#/g if ($recipient);
 
             #
             #  Inverted search?
@@ -960,6 +984,14 @@ sub processRule
             #
             my $body = $1;
 
+            #
+            # Expansion:
+            #
+            #  "#"  -> " "
+            #  "##" -> "#"
+            #
+            $body =~ s/([^#])#([^#])/$1 $2/g if ($body);
+            $body =~ s/##/#/g if ($body);
 
             #
             #  Inverted search?
