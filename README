@@ -78,6 +78,14 @@ Selection Rules:
     characters are converted to spaces.  This allows the following rule
     to work as expected:  "folder:[Google#Mail]/Spam delete"
 
+   body:foo
+     Reduce the working set to those messages which contain 'foo' in
+    the body of the message.
+
+   !body:foo
+     Reduce the working set to those messages which do not contain 'foo'
+    in the body of the message.
+
    subject:foo
      Reduce the working set to those messages which contain 'foo' in the
     subject.
@@ -88,11 +96,19 @@ Selection Rules:
 
    from:bar@bar.com
      Reduce the working set to those messags which contain 'bar@bar.com'
-    in the sender adress
+    in the sender address.
 
    !from:bar@bar.com
      Reduce the working set to those messags which do not contain
-    'bar@bar.com' in the sender adress
+    'bar@bar.com' in the sender address.
+
+   to:bar@bar.com
+     Reduce the working set to those messags which contain 'bar@bar.com'
+    in the recipient adress.
+
+   !to:bar@bar.com
+     Reduce the working set to those messags which do not contain
+    'bar@bar.com' in the recipient address.
 
    status:[new|old]
      Select only messags with the given state.  "new" means unread, and
@@ -123,7 +139,7 @@ Operation Rules:
     once regardless of the number of selected messages.
 
     dump
-     Provide a brief list of the selected messages, their sender, recipient,
+     Provide a brief dump of the selected messages; their sender, recipient,
     and subject.
 
 
