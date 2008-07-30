@@ -572,13 +572,12 @@ sub processRule
             my $folder = $1;
 
             #
-            #  '#' -> ' '
+            # Expansion:
+            #
+            #  "#"  -> " "
+            #  "##" -> "#"
             #
             $folder =~ s/([^#])#([^#])/$1 $2/g if ($folder);
-
-            #
-            #  '##' -> '#'.
-            #
             $folder =~ s/##/#/g if ($folder);
 
             #
