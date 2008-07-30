@@ -19,6 +19,7 @@ sift - A scriptable IMAP utility program.
 
    --dry-run      Don't execute anything.
    --execute      Specify a rule to execute directly.
+   --no-cache     Don't cache messages.
    --ssl          Force the use of SSL.
 
 =cut
@@ -132,7 +133,7 @@ The LICENSE file contains the full text of the license.
 
 use strict;
 use warnings;
-use File::Temp qw/ tempfile /;
+use File::Temp qw/ tempfile tempdir /;
 use Getopt::Long;
 use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
@@ -332,6 +333,9 @@ sub parseCommandLineArguments
 
             # dry run?
             "dry-run", \$CONFIG{ 'dry-run' },
+
+            # avoid caching?
+            "no-cache", \$CONFIG{ 'no-cache' },
 
             # execute directly?
             "execute=s", \$CONFIG{ 'execute' },
@@ -596,6 +600,23 @@ sub processRule
             #  Select the folder.
             #
             $CONFIG{ 'verbose' } && print "Selecting folder: $folder\n";
+
+            #
+            #  Remove existing cache, if present.
+            #
+            if ( $CONFIG{ 'cache' } )
+            {
+                $CONFIG{ 'verbose' } && print "Removing old folder cache\n";
+                system("rm -rf $CONFIG{'cache'}");
+            }
+
+            #
+            #  Create folder cache
+            #
+            $CONFIG{ 'cache' } = tempdir( CLEANUP => 0 )
+              unless ( $CONFIG{ 'no-cache' } );
+
+
             $count = $imap->select($folder);
             if ( !defined $count )
             {
@@ -771,7 +792,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                my $msg = $imap->get($id);
+                my $msg = getMessage( $imap, $id );
 
                 if ($msg)
                 {
@@ -839,7 +860,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                my $msg = $imap->get($id);
+                my $msg = getMessage( $imap, $id );
 
                 if ($msg)
                 {
@@ -896,11 +917,12 @@ sub processRule
                 if ($invert)
                 {
                     print
-                      "Looking messages with recipient NOT matching: $recipient\n";
+"Looking messages with recipient NOT matching: $recipient\n";
                 }
                 else
                 {
-                    print "Looking messages with recipient matching: $recipient\n";
+                    print
+                      "Looking messages with recipient matching: $recipient\n";
                 }
             }
 
@@ -908,7 +930,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                my $msg = $imap->get($id);
+                my $msg = getMessage( $imap, $id );
 
                 if ($msg)
                 {
@@ -917,6 +939,75 @@ sub processRule
                     #  Do the search
                     #
                     if ( matchMessageHeader( $msg, "To", $recipient, $invert ) )
+                    {
+                        push( @matches, $id );
+                        $CONFIG{ 'verbose' }
+                          && print "\tmatch: found\n";
+                    }
+                }
+            }
+            @messages = @matches;
+            $CONFIG{ 'verbose' }
+              && print "\tFound "
+              . scalar(@messages)
+              . " matching message(s)\n";
+        }
+        elsif ( $token =~ /\!*body:(.*)/i )
+        {
+
+            #
+            #  Filter all current messages via a string in the body
+            #
+            my $body = $1;
+
+
+            #
+            #  Inverted search?
+            #
+            my $invert = 0;
+            $invert = 1 if ( $token =~ /^\!/ );
+
+            #
+            #  Ensure we got an argument.
+            #
+            if ( !$body )
+            {
+                print "Error - body: requires an argument\n";
+                next;
+            }
+
+            #
+            #  Dry run?  Stop here.
+            #
+            next if ( $CONFIG{ 'dry-run' } );
+
+            if ( $CONFIG{ 'verbose' } )
+            {
+                if ($invert)
+                {
+                    print
+"Looking messages with body NOT matching: $body\n";
+                }
+                else
+                {
+                    print
+                      "Looking messages with body matching: $body\n";
+                }
+            }
+
+            my @matches;
+
+            foreach my $id (@messages)
+            {
+                my $msg = getMessage( $imap, $id );
+
+                if ($msg)
+                {
+
+                    #
+                    #  Do the search
+                    #
+                    if ( matchMessageBody( $msg, $body, $invert ) )
                     {
                         push( @matches, $id );
                         $CONFIG{ 'verbose' }
@@ -1007,7 +1098,7 @@ sub processRule
             foreach my $id (@messages)
             {
                 $CONFIG{ 'verbose' } && print "\t$id\n";
-                my $msg = $imap->get($id);
+                my $msg = getMessage( $imap, $id );
 
                 if ($msg)
                 {
@@ -1074,7 +1165,7 @@ sub processRule
 
             foreach my $id (@messages)
             {
-                my $msg = $imap->get($id);
+                my $msg = getMessage( $imap, $id );
 
                 if ($msg)
                 {
@@ -1324,7 +1415,7 @@ sub matchMessageHeader
             {
                 if ( $val !~ /$value/i )
                 {
-                    $CONFIG{'verbose'} && print "Matched: $value\n";
+                    $CONFIG{ 'verbose' } && print "Matched: $value\n";
                     return 1;
                 }
             }
@@ -1332,7 +1423,7 @@ sub matchMessageHeader
             {
                 if ( $val =~ /$value/i )
                 {
-                    $CONFIG{'verbose'} && print "Matched: $value\n";
+                    $CONFIG{ 'verbose' } && print "Matched: $value\n";
                     return 1;
                 }
             }
@@ -1342,4 +1433,104 @@ sub matchMessageHeader
     return 0;
 }
 
+
+
+=begin doc
+
+  Does the body of the message match the given term?
+
+=end doc
+
+=cut
+
+sub matchMessageBody
+{
+    my( $message, $term, $invert ) = ( @_ );
+
+    # invert is optional - so ensure it is defined.
+    $invert = 0 if ( !defined($invert) );
+
+    # no message? no match.
+    return 0 if ( ( !$message ) || ( !@$message ) );
+
+
+    my $body = 0;
+
+    foreach my $line (@$message)
+    {
+        # strip newline/linefeed.
+        $line =~ s/[\r\n]//g if ( defined( $line ) );
+
+        # end of the header?
+        $body = 1 if ( $line =~ /^$/ );
+
+        if ( ( $body ) && ( $line =~ /$term/i ) )
+        {
+            $CONFIG{ 'verbose' } && print "Body line '$line' matches '$term'\n";
+
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+
+=begin doc
+
+  Get a message from the imap store - and cache it.
+
+=end doc
+
+=cut
+
+sub getMessage
+{
+    my ( $imap, $id ) = (@_);
+
+    my $msg;
+
+    #
+    #  Is it cached?
+    #
+    if ( $CONFIG{ 'cache' } && ( -e $CONFIG{ 'cache' } . "/$id" ) )
+    {
+        $CONFIG{ 'verbose' }
+          && print "Fetching message ID:$id from $CONFIG{'cache'}/$id\n";
+
+        open( CACHE, "<", "$CONFIG{'cache'}/$id" )
+          or die "Failed to read from cache $CONFIG{'cache'}/$id - $!";
+        foreach my $line (<CACHE>)
+        {
+            push( @$msg, $line );
+        }
+        close(CACHE);
+    }
+    else
+    {
+
+        #
+        #  Fetch
+        #
+        $msg = $imap->get($id);
+
+        #
+        #  Save to cache
+        #
+        if ( $CONFIG{ 'cache' } )
+        {
+            $CONFIG{ 'verbose' }
+              && print "Saving message ID:$id to $CONFIG{'cache'}/$id\n";
+            open( CACHE, ">", "$CONFIG{'cache'}/$id" )
+              or die "Failed to write to cache $CONFIG{'cache'}/$id - $!";
+            foreach my $line (@$msg)
+            {
+                print CACHE $line;
+            }
+            close(CACHE);
+        }
+    }
+
+    return ($msg);
+}
 
