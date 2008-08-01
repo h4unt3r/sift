@@ -212,7 +212,7 @@ else
 #
 #  Create cache directory unless we shouldn't.
 #
-$CONFIG{'cache'} = tempdir( CLEANUP => 1 ) unless( $CONFIG{'no-cache'} );
+$CONFIG{ 'cache' } = tempdir( CLEANUP => 1 ) unless ( $CONFIG{ 'no-cache' } );
 
 
 #
@@ -360,7 +360,7 @@ sub parseCommandLineArguments
             "dry-run", \$CONFIG{ 'dry-run' },
 
             # caching related
-            "no-cache",     \$CONFIG{ 'no-cache' },
+            "no-cache", \$CONFIG{ 'no-cache' },
 
             # execute directly?
             "execute=s", \$CONFIG{ 'execute' },
@@ -521,7 +521,7 @@ sub login
     #
     #  Save the current folder
     #
-    $CONFIG{'folder'} = $imap->current_box();
+    $CONFIG{ 'folder' } = $imap->current_box();
 
     return ($imap);
 }
@@ -672,7 +672,8 @@ sub processRule
                 }
             }
 
-            print "Command done - Selected message count: " . scalar(@messages) . "\n";
+            print "Command done - Selected message count: "
+              . scalar(@messages) . "\n";
         }
         else
         {
@@ -896,9 +897,9 @@ sub getMessage
     #
     #  Is it cached?
     #
-    if ( $CONFIG{ 'cache' }  )
+    if ( $CONFIG{ 'cache' } )
     {
-        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{'folder'} . ".$id";
+        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{ 'folder' } . ".$id";
 
         if ( -e $file )
         {
@@ -906,14 +907,14 @@ sub getMessage
               && print "Fetching message ID:$id from: $file\n";
 
             open( CACHE, "<", $file )
-              or die "Failed to read from cache file '$file' - $!" ;
+              or die "Failed to read from cache file '$file' - $!";
             foreach my $line (<CACHE>)
             {
                 push( @$msg, $line );
             }
             close(CACHE);
 
-            return( $msg );
+            return ($msg);
         }
     }
 
@@ -923,9 +924,9 @@ sub getMessage
     #
     $msg = $imap->get($id);
 
-    if ( $CONFIG{'cache'} )
+    if ( $CONFIG{ 'cache' } )
     {
-        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{'folder'} . ".$id";
+        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{ 'folder' } . ".$id";
 
         # output
         $CONFIG{ 'verbose' }
@@ -1060,7 +1061,7 @@ sub do_delete
     #
     return if ( !scalar(@messages) );
 
-    $CONFIG{'verbose'} && print "Deleting messages:\n";
+    $CONFIG{ 'verbose' } && print "Deleting messages:\n";
 
     #
     #  Do the deletion.
@@ -1094,7 +1095,7 @@ sub do_exec
     return if ( !scalar(@messages) );
 
 
-    $CONFIG{'verbose'} && print "Executing '$argument' for each message.\n";
+    $CONFIG{ 'verbose' } && print "Executing '$argument' for each message.\n";
 
     #
     #  Run the command with each message on STDIN
@@ -1141,7 +1142,7 @@ sub do_exec_once
     #
     #  Run it
     #
-    $CONFIG{'verbose'} && print "Executing '$argument' once\n";
+    $CONFIG{ 'verbose' } && print "Executing '$argument' once\n";
     system($argument );
 }
 
@@ -1467,7 +1468,7 @@ sub do_folder_change
     #
     #  Save the current folder.
     #
-    $CONFIG{'folder'} = $argument;
+    $CONFIG{ 'folder' } = $argument;
 
 
     #
