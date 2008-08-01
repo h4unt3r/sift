@@ -503,8 +503,16 @@ sub login
     #
     # Login
     #
-    $imap->login( $user, $pass )
-      or die "Login failed :" . $imap->errstr . "\n";
+    if ( ! $imap->login( $user, $pass ) )
+    {
+        print "IMAP Login failed :" . $imap->errstr . "\n";
+        print "\nCredentials were\n";
+        print "\tserver: $server\n";
+        print "\tuser  : $user\n";
+        print "\tpass  : $pass\n";
+        exit;
+    }
+
 
     return ($imap);
 }
@@ -588,6 +596,11 @@ sub processRule
               && print "Ignoring rule: $command - No messages are selected\n";
             next;
         }
+
+        #
+        #  Debugging
+        #
+        $CONFIG{'verbose'} && print "Processing '$token' current folder: " . $imap->current_box() . "\n";
 
         #
         #  Get the key
@@ -1140,7 +1153,7 @@ sub do_status_change
         $CONFIG{ 'verbose' } && print "Marking messages as read\n";
         foreach my $id (@messages)
         {
-            $CONFIG{ 'verbose' } && print "\t:$id\n";
+            $CONFIG{ 'verbose' } && print "\t$id\n";
             $imap->_process_cmd(
                                  cmd     => [STORE => qq[$id +FLAGS (\\Seen)]],
                                  final   => sub    {1},
@@ -1154,7 +1167,7 @@ sub do_status_change
         $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
         foreach my $id (@messages)
         {
-            $CONFIG{ 'verbose' } && print "Msg: $id\n";
+            $CONFIG{ 'verbose' } && print "\t$id\n";
             $imap->_process_cmd(
                                cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
                                final   => sub {1},
@@ -1436,6 +1449,7 @@ sub do_folder_change
     {
         print "\tSelecting folder '$argument' failed\n";
         print "\tThe folder is probably empty\n";
+        print "\tError message returned was: " . $imap->errstr . "\n";
         exit;
     }
 
