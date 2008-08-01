@@ -210,6 +210,12 @@ else
 
 
 #
+#  Create cache directory unless we shouldn't.
+#
+$CONFIG{'cache'} = tempdir( CLEANUP => 1 ) unless( $CONFIG{'no-cache'} );
+
+
+#
 #  Are we running directly?
 #
 if ( $CONFIG{ 'execute' } )
@@ -355,7 +361,6 @@ sub parseCommandLineArguments
 
             # caching related
             "no-cache",     \$CONFIG{ 'no-cache' },
-            "global-cache", \$CONFIG{ 'global-cache' },
 
             # execute directly?
             "execute=s", \$CONFIG{ 'execute' },
@@ -513,6 +518,10 @@ sub login
         exit;
     }
 
+    #
+    #  Save the current folder
+    #
+    $CONFIG{'folder'} = $imap->current_box();
 
     return ($imap);
 }
@@ -872,47 +881,63 @@ sub getMessage
 {
     my ( $imap, $id ) = (@_);
 
+    #
+    #  Message we will return
+    #
     my $msg;
+
+    #
+    #  File to write to.
+    #
+    my $file;
 
     #
     #  Is it cached?
     #
-    if ( $CONFIG{ 'cache' } && ( -e $CONFIG{ 'cache' } . "/$id" ) )
+    if ( $CONFIG{ 'cache' }  )
     {
-        $CONFIG{ 'verbose' }
-          && print "Fetching message ID:$id from $CONFIG{'cache'}/$id\n";
+        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{'folder'} . ".$id";
 
-        open( CACHE, "<", "$CONFIG{'cache'}/$id" )
-          or die "Failed to read from cache $CONFIG{'cache'}/$id - $!";
-        foreach my $line (<CACHE>)
-        {
-            push( @$msg, $line );
-        }
-        close(CACHE);
-    }
-    else
-    {
-
-        #
-        #  Fetch
-        #
-        $msg = $imap->get($id);
-
-        #
-        #  Save to cache
-        #
-        if ( $CONFIG{ 'cache' } )
+        if ( -e $file )
         {
             $CONFIG{ 'verbose' }
-              && print "Saving message ID:$id to $CONFIG{'cache'}/$id\n";
-            open( CACHE, ">", "$CONFIG{'cache'}/$id" )
-              or die "Failed to write to cache $CONFIG{'cache'}/$id - $!";
-            foreach my $line (@$msg)
+              && print "Fetching message ID:$id from: $file\n";
+
+            open( CACHE, "<", $file )
+              or die "Failed to read from cache file '$file' - $!" ;
+            foreach my $line (<CACHE>)
             {
-                print CACHE $line;
+                push( @$msg, $line );
             }
             close(CACHE);
+
+            return( $msg );
         }
+    }
+
+
+    #
+    #  Fetch via IMAP
+    #
+    $msg = $imap->get($id);
+
+    if ( $CONFIG{'cache'} )
+    {
+        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{'folder'} . ".$id";
+
+        # output
+        $CONFIG{ 'verbose' }
+          && print "Saving message ID:$id to $file\n";
+
+        # write
+        open( CACHE, ">", $file )
+          or die "Failed to write to cache file '$file' - $!";
+        foreach my $line (@$msg)
+        {
+            print CACHE $line;
+        }
+        close(CACHE);
+
     }
 
     return ($msg);
@@ -1455,7 +1480,16 @@ sub do_folder_change
         exit;
     }
 
+    #
+    #  Save the count of messages
+    #
     $original = $count;
+
+    #
+    #  Save the current folder.
+    #
+    $CONFIG{'folder'} = $argument;
+
 
     #
     # Show message count
