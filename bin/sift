@@ -673,7 +673,8 @@ sub processRule
             }
 
             print "Command done - Selected message count: "
-              . scalar(@messages) . "\n" unless( $CONFIG{'dry-run'} );
+              . scalar(@messages) . "\n"
+              unless ( $CONFIG{ 'dry-run' } );
         }
         else
         {
