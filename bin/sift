@@ -503,7 +503,7 @@ sub login
     #
     # Login
     #
-    if ( ! $imap->login( $user, $pass ) )
+    if ( !$imap->login( $user, $pass ) )
     {
         print "IMAP Login failed :" . $imap->errstr . "\n";
         print "\nCredentials were\n";
@@ -600,7 +600,9 @@ sub processRule
         #
         #  Debugging
         #
-        $CONFIG{'verbose'} && print "Processing '$token' current folder: " . $imap->current_box() . "\n";
+        $CONFIG{ 'verbose' }
+          && print "Processing '$token' current folder: "
+          . $imap->current_box() . "\n";
 
         #
         #  Get the key
