@@ -1,6 +1,5 @@
 #!/usr/bin/perl -w
 
-
 =head1 NAME
 
 sift - A scriptable IMAP utility program.
@@ -40,26 +39,24 @@ sift - A scriptable IMAP utility program.
 
 =item Search based on flags ("new" vs. "read")
 
-=item Search based on message senders.
-
-=item Search based on message subjects.
+=item Search based on message sender, recipients, and other header values.
 
 =item Search based on message bodies.
 
 =back
 
 
-  Once you have selected a number of messages you may do a couple of
- different things:
+  Once you have selected a number of messages you may perform actions upon
+ them:
 
 
 =over 8
 
-=item Copy/Move messages into a new folder.
+=item Copy or move the messages into a new folder.
 
-=item Delete messages
+=item Delete the messages.
 
-=item Change flags ("new" vs. "read")
+=item Change flags ("new" vs. "read").
 
 =item Execute programs with the message bodies as input.
 
@@ -133,6 +130,9 @@ The LICENSE file contains the full text of the license.
 
 use strict;
 use warnings;
+
+use strict;
+use warnings;
 use File::Temp qw/ tempfile tempdir /;
 use Getopt::Long;
 use Net::IMAP::Simple;
@@ -142,10 +142,27 @@ use Pod::Usage;
 
 
 #
-#  Configuration variables.
+#  Command line / configuration file arguments.
 #
 my %CONFIG;
 
+
+#
+#  Dispatch table.
+#
+my %DISPATCH;
+
+
+#
+#  Global IMAP handle
+#
+my $imap;
+
+#
+#  Global selected messages
+#
+my @messages;
+my $original;
 
 #
 #  Release:  Set by "make release"
@@ -153,17 +170,12 @@ my %CONFIG;
 $CONFIG{ 'version' } = 'UNRELEASED';
 
 
-#
-#  Global connection handle
-#
-my $imap;
-
-
 
 #
 #  Parse command line arguments.
 #
 parseCommandLineArguments();
+
 
 
 #
@@ -189,6 +201,12 @@ else
     $imap = undef;
 }
 
+
+
+#
+#  Populate
+#
+%DISPATCH = populateDispatch();
 
 
 #
@@ -292,19 +310,20 @@ foreach my $file (@ARGV)
 
 
 #
-#  All done.
+#  All done
 #
 exit;
 
 
 
-=begin doc
+=begin
 
-  Process the command line arguments.
+  Parse the command line looking for arguments.
 
 =end doc
 
 =cut
+
 
 sub parseCommandLineArguments
 {
@@ -358,6 +377,7 @@ sub parseCommandLineArguments
         print "sift v$CONFIG{'version'}\n";
         exit;
     }
+
 }
 
 
@@ -525,13 +545,12 @@ sub processRules
 }
 
 
-
 =begin doc
 
-  Process a single rule-line read from the configuration file.
+  Process a single line of space-deliminated rule tokens, and arguments.
 
-  The line is split into tokens and each one is executed in order,
- if it is recognised.
+  These are read from the files passed to us, or via the command line
+ flag "--execute".
 
 =end doc
 
@@ -542,18 +561,7 @@ sub processRule
     my ($line) = (@_);
 
     #
-    #  The stack of messages we've currently got selected.
-    #
-    my @messages;
-
-    #
-    #  The count of messages in the current folder.
-    #
-    my $count;
-
-    #
-    #  Break the list of rules up into a collection of space-separated
-    # tokens.
+    #  Tokenize
     #
     foreach my $token ( split( /[ \t]/, $line ) )
     {
@@ -561,765 +569,91 @@ sub processRule
         #
         #  Skip blank tokens
         #
+        $token =~ s/[\r\n]//g if ($token);
         next if ( !length($token) || ( $token =~ /^([\t ]+)$/ ) );
 
-        $CONFIG{ 'verbose' } && print "TOKEN: $token\n";
+        #
+        #  Command and argument
+        #
+        my ( $command, $argument ) = split( /\:/, $token );
 
         #
-        #  Change folder.  Mark all messages as current.
+        #  No messages selected then we're done?
         #
-        if ( $token =~ /folder:(.*)/i )
+        if (    ( !scalar(@messages) )
+             && ( $command !~ /folder/i )
+             && ( !$CONFIG{ 'dry-run' } ) )
         {
-            my $folder = $1;
-
-            #
-            # Expansion:
-            #
-            #  "#"  -> " "
-            #  "##" -> "#"
-            #
-            $folder =~ s/([^#])#([^#])/$1 $2/g if ($folder);
-            $folder =~ s/##/#/g if ($folder);
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$folder )
-            {
-                print "Error - folder: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            #
-            #
-            #  Select the folder.
-            #
-            $CONFIG{ 'verbose' } && print "Selecting folder: $folder\n";
-
-            #
-            #  Remove existing cache, if present.
-            #
-            if (    ( $CONFIG{ 'cache' } )
-                      && ( -d $CONFIG{ 'cache' } )
-                    && ( !$CONFIG{'global-cache'} ) )
-            {
-                $CONFIG{ 'verbose' } && print "Removing old folder cache\n";
-                system("rm -rf $CONFIG{'cache'}");
-            }
-
-            #
-            #  Create folder cache
-            #
-            $CONFIG{ 'cache' } = tempdir( CLEANUP => 1 )
-              unless ( $CONFIG{ 'no-cache' } );
-
-
-            $count = $imap->select($folder);
-            if ( !defined $count )
-            {
-                print "\tSelecting folder '$folder' failed\n";
-                print "\tThe folder is probably empty\n";
-                exit;
-            }
-
-            #
-            # Show message count
-            #
-            $CONFIG{ 'verbose' } && print "\tFound $count messages\n";
-            foreach my $id ( 1 .. $count )
-            {
-                push( @messages, $id );
-            }
+            $CONFIG{ 'verbose' }
+              && print "Ignoring rule: $command - No messages are selected\n";
+            next;
         }
-        elsif ( $token =~ /status:(.*)/i )
+
+        #
+        #  Get the key
+        #
+        my $orig = $command;
+        $command = $1 if ( $command =~ /\!(.*)/ );
+
+        #
+        #  Get the reference to the command handler from our
+        # dispatch table.
+        #
+        my $ref = $DISPATCH{ lc($command) };
+
+        #
+        #  Found it
+        #
+        if ($ref)
         {
 
             #
-            #  Update current stack of messages to only
-            # be those that are of the given status.
+            #  Call it
             #
-            my $status = $1;
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$status )
+            if ( $ref->{ 'arg' } )
             {
-                print "Error - status: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-
-            if (    ( $status =~ /^new$/i )
-                 || ( $status =~ /^unread$/i ) )
-            {
-                $CONFIG{ 'verbose' } && print "Finding unread messages\n";
-                @messages = findUnread($count);
-                my $c = scalar(@messages);
-                $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
-            }
-            elsif (    ( $status =~ /^old$/i )
-                    || ( $status =~ /^read$/i ) )
-            {
-                $CONFIG{ 'verbose' } && print "Finding old messages\n";
-                @messages = findRead($count);
-                my $c = scalar(@messages);
-                $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
-            }
-            else
-            {
-                print "WARNING: Ignoring unknown status type '$status'\n";
-            }
-        }
-        elsif ( $token =~ /mark:(.*)/i )
-        {
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-            #
-            #  Mark all the currently selected messages as either
-            # "new" or "read".
-            #
-            my $state = $1;
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$state )
-            {
-                print "Error - status: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            if (    ( $state =~ /^new$/i )
-                 || ( $state =~ /^read$/i ) )
-            {
-                $CONFIG{ 'verbose' } && print "Marking messages as read\n";
-                foreach my $id (@messages)
+                if ( defined($argument) )
                 {
-                    $CONFIG{ 'verbose' } && print "\t:$id\n";
-                    $imap->_process_cmd(
-                                      cmd => [STORE => qq[$id +FLAGS (\\Seen)]],
-                                      final   => sub {1},
-                                      process => sub { },
-                    );
+
+                    #
+                    #  Handle argument expansion
+                    #
+                    $argument =~ s/([^#])#([^#])/$1 $2/g if ($argument);
+                    $argument =~ s/##/#/g if ($argument);
+
+                    if ( $CONFIG{ 'dry-run' } )
+                    {
+                        print "dry-run: Calling handler $orig('$argument');\n";
+                    }
+                    else
+                    {
+
+                        $ref->{ 'sub' }->( $orig, $argument );
+                    }
                 }
-            }
-            elsif (    ( $state =~ /^unread$/i )
-                    || ( $state =~ /^old$/i ) )
-            {
-                $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
-                foreach my $id (@messages)
+                else
                 {
-                    $CONFIG{ 'verbose' } && print "Msg: $id\n";
-                    $imap->_process_cmd(
-                               cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
-                               final   => sub {1},
-                               process => sub { },
-                    );
+                    print "WARNING: Missing argument for $orig\n";
                 }
             }
             else
             {
-                print "WARNING:  Ignoring unknown status type '$state'\n";
-            }
-        }
-        elsif ( $token =~ /\!*subject:(.*)/i )
-        {
-
-            #
-            #  Filter all current messages to remove those that
-            # don't match the given subject string.
-            #
-            my $subject = $1;
-
-            #
-            # Expansion:
-            #
-            #  "#"  -> " "
-            #  "##" -> "#"
-            #
-            $subject =~ s/([^#])#([^#])/$1 $2/g if ($subject);
-            $subject =~ s/##/#/g if ($subject);
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$subject )
-            {
-                print "Error - subject: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            #
-            #  Inverted search?
-            #
-            my $invert = 0;
-            $invert = 1 if ( $token =~ /^\!/ );
-
-
-            if ( $CONFIG{ 'verbose' } )
-            {
-                if ($invert)
+                if ( $CONFIG{ 'dry-run' } )
                 {
-                    print
-                      "Looking messages with subject NOT matching: $subject\n";
+                    print "dry-run: Calling handler $orig();\n";
                 }
                 else
                 {
-                    print "Looking messages with subject matching: $subject\n";
+                    $ref->{ 'sub' }->($orig);
                 }
-            }
-
-            my @matches;
-
-            foreach my $id (@messages)
-            {
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-                    if (
-                         matchMessageHeader( $msg, "Subject", $subject, $invert
-                         )
-                      )
-                    {
-                        push( @matches, $id );
-                        $CONFIG{ 'verbose' }
-                          && print "\tmatch: found\n";
-                    }
-                }
-            }
-            @messages = @matches;
-            $CONFIG{ 'verbose' }
-              && print "\tFound "
-              . scalar(@messages)
-              . " matching message(s)\n";
-        }
-        elsif ( $token =~ /\!*from:(.*)/i )
-        {
-
-            #
-            #  Filter all current messages to remove those that
-            # don't match the given subject string.
-            #
-            my $sender = $1;
-
-            #
-            # Expansion:
-            #
-            #  "#"  -> " "
-            #  "##" -> "#"
-            #
-            $sender =~ s/([^#])#([^#])/$1 $2/g if ($sender);
-            $sender =~ s/##/#/g if ($sender);
-
-            #
-            #  Inverted search?
-            #
-            my $invert = 0;
-            $invert = 1 if ( $token =~ /^\!/ );
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$sender )
-            {
-                print "Error - from: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            if ( $CONFIG{ 'verbose' } )
-            {
-                if ($invert)
-                {
-                    print
-                      "Looking messages with sender NOT matching: $sender\n";
-                }
-                else
-                {
-                    print "Looking messages with sender matching: $sender\n";
-                }
-            }
-
-            my @matches;
-
-            foreach my $id (@messages)
-            {
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-
-                    #
-                    #  Do the search
-                    #
-                    if ( matchMessageHeader( $msg, "From", $sender, $invert ) )
-                    {
-                        push( @matches, $id );
-                        $CONFIG{ 'verbose' }
-                          && print "\tmatch: found\n";
-                    }
-                }
-            }
-            @messages = @matches;
-            $CONFIG{ 'verbose' }
-              && print "\tFound "
-              . scalar(@messages)
-              . " matching message(s)\n";
-        }
-        elsif ( $token =~ /\!*To:(.*)/i )
-        {
-
-            #
-            #  Filter all current messages to remove those that
-            # don't match the given recipient
-            #
-            my $recipient = $1;
-
-            #
-            # Expansion:
-            #
-            #  "#"  -> " "
-            #  "##" -> "#"
-            #
-            $recipient =~ s/([^#])#([^#])/$1 $2/g if ($recipient);
-            $recipient =~ s/##/#/g if ($recipient);
-
-            #
-            #  Inverted search?
-            #
-            my $invert = 0;
-            $invert = 1 if ( $token =~ /^\!/ );
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$recipient )
-            {
-                print "Error - to: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            if ( $CONFIG{ 'verbose' } )
-            {
-                if ($invert)
-                {
-                    print
-"Looking messages with recipient NOT matching: $recipient\n";
-                }
-                else
-                {
-                    print
-                      "Looking messages with recipient matching: $recipient\n";
-                }
-            }
-
-            my @matches;
-
-            foreach my $id (@messages)
-            {
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-
-                    #
-                    #  Do the search
-                    #
-                    if ( matchMessageHeader( $msg, "To", $recipient, $invert ) )
-                    {
-                        push( @matches, $id );
-                        $CONFIG{ 'verbose' }
-                          && print "\tmatch: found\n";
-                    }
-                }
-            }
-            @messages = @matches;
-            $CONFIG{ 'verbose' }
-              && print "\tFound "
-              . scalar(@messages)
-              . " matching message(s)\n";
-        }
-        elsif ( $token =~ /\!*body:(.*)/i )
-        {
-
-            #
-            #  Filter all current messages via a string in the body
-            #
-            my $body = $1;
-
-            #
-            # Expansion:
-            #
-            #  "#"  -> " "
-            #  "##" -> "#"
-            #
-            $body =~ s/([^#])#([^#])/$1 $2/g if ($body);
-            $body =~ s/##/#/g if ($body);
-
-            #
-            #  Inverted search?
-            #
-            my $invert = 0;
-            $invert = 1 if ( $token =~ /^\!/ );
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$body )
-            {
-                print "Error - body: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            if ( $CONFIG{ 'verbose' } )
-            {
-                if ($invert)
-                {
-                    print "Looking messages with body NOT matching: $body\n";
-                }
-                else
-                {
-                    print "Looking messages with body matching: $body\n";
-                }
-            }
-
-            my @matches;
-
-            foreach my $id (@messages)
-            {
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-
-                    #
-                    #  Do the search
-                    #
-                    if ( matchMessageBody( $msg, $body, $invert ) )
-                    {
-                        push( @matches, $id );
-                        $CONFIG{ 'verbose' }
-                          && print "\tmatch: found\n";
-                    }
-                }
-            }
-            @messages = @matches;
-            $CONFIG{ 'verbose' }
-              && print "\tFound "
-              . scalar(@messages)
-              . " matching message(s)\n";
-        }
-        elsif ( $token =~ /execonce:(.*)/i )
-        {
-
-            #
-            #  Execute the named program only once, regardless of
-            # the number of matches.
-            #
-            my $prog = $1;
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$prog )
-            {
-                print "Error - execonce: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-
-            $prog =~ s/^\s+//;
-            $prog =~ s/\s+$//;
-
-
-            my $count = scalar(@messages);
-            if ($count)
-            {
-                $CONFIG{ 'verbose' } && print "Executing program: $prog\n";
-                system($prog );
-            }
-
-        }
-        elsif ( $token =~ /exec:(.*)/i )
-        {
-
-            #
-            #  Execute the named program once for each selected
-            # message.
-            #
-            my $prog = $1;
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$prog )
-            {
-                print "Error - exec: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            $prog =~ s/^\s+//;
-            $prog =~ s/\s+$//;
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-
-            $CONFIG{ 'verbose' } && print "Executing program: $prog\n";
-
-            foreach my $id (@messages)
-            {
-                $CONFIG{ 'verbose' } && print "\t$id\n";
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-                    my ( $fh, $filename ) = tempfile();
-
-                    foreach my $m (@$msg)
-                    {
-                        print $fh $m;
-                    }
-                    close($fh);
-
-                    system("cat $filename | $prog");
-                    unlink($filename);
-                }
-            }
-        }
-        elsif ( $token =~ /delete/i )
-        {
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-            #
-            #  Delete all currently selected messages.
-            #
-            $CONFIG{ 'verbose' } && print "Deleting messages\n";
-
-            foreach my $id (@messages)
-            {
-                $CONFIG{ 'verbose' } && print "\t$id\n";
-                $imap->delete($id);
-            }
-        }
-        elsif ( $token =~ /dump/i )
-        {
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-
-            #
-            #  Dump details of the message
-            #
-            my $to      = '';
-            my $from    = '';
-            my $subject = '';
-
-            foreach my $id (@messages)
-            {
-                my $msg = getMessage( $imap, $id );
-
-                if ($msg)
-                {
-                    foreach my $line (@$msg)
-                    {
-                        $subject = $1 if ( $line =~ /^Subject: (.*)/i );
-                        $from    = $1 if ( $line =~ /^From: (.*)/i );
-                        $to      = $1 if ( $line =~ /^To: (.*)/i );
-                    }
-
-                    print <<EOF;
-[$id]
-	To: $to
-	From: $from
-	Subject: $subject
-EOF
-                }
-            }
-
-        }
-        elsif ( $token =~ /move:(.*)/i )
-        {
-
-            #
-            #  Move all selected messages to the specified folder.
-            #
-            my $dest = $1;
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$dest )
-            {
-                print "Error - move: requires an argument\n";
-                next;
-            }
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-            $dest =~ s/^\s+//;
-            $dest =~ s/\s+$//;
-
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-            $CONFIG{ 'verbose' } && print "Moving messages to folder: $dest\n";
-
-            foreach my $id (@messages)
-            {
-                print "\t$id\n";
-                if ( $imap->copy( $id, $dest ) )
-                {
-                    $imap->delete($id);
-                }
-            }
-        }
-        elsif ( $token =~ /copy:(.*)/i )
-        {
-
-            #
-            #  Copy all selected messages to the specified folder.
-            #
-            my $dest = $1;
-
-
-            #
-            #  Ensure we got an argument.
-            #
-            if ( !$dest )
-            {
-                print "Error - copy: requires an argument\n";
-                next;
-            }
-
-
-            #
-            #  Dry run?  Stop here.
-            #
-            next if ( $CONFIG{ 'dry-run' } );
-
-
-            $dest =~ s/^\s+//;
-            $dest =~ s/\s+$//;
-
-            #
-            #  No option if there are no messages.
-            #
-            my $count = scalar(@messages);
-            if ( !$count )
-            {
-                next;
-            }
-
-            $CONFIG{ 'verbose' } && print "Copying messages to folder: $dest\n";
-
-            foreach my $id (@messages)
-            {
-                $CONFIG{ 'verbose' } && print "\t$id\n";
-                $imap->copy( $id, $dest );
             }
         }
         else
         {
-
-            #
-            #  Failed to find the token
-            #
-            print "WARNING: Uknown rule/token : $token\n";
+            print "WARNING: unknown rule: $command [$orig]\n";
         }
     }
 }
-
 
 
 =begin doc
@@ -1333,9 +667,8 @@ EOF
 
 sub findUnread
 {
-    my ($count) = (@_);
     my $sh = $imap->{ sock };
-    print $sh "A$count SEARCH unseen\r\n";
+    print $sh "A$original SEARCH unseen\r\n";
 
     my @matches;
     while ( my $resp = $sh->getline() )
@@ -1372,9 +705,8 @@ sub findUnread
 
 sub findRead
 {
-    my ($count) = (@_);
     my $sh = $imap->{ sock };
-    print $sh "A$count SEARCH seen\r\n";
+    print $sh "A$original SEARCH seen\r\n";
 
     my @matches;
     while ( my $resp = $sh->getline() )
@@ -1419,7 +751,11 @@ sub matchMessageHeader
     $invert = 0 if ( !defined($invert) );
 
     # no message? no match.
-    return 0 if ( ( !$message ) || ( !@$message ) );
+    if ( ( !$message ) || ( !@$message ) )
+    {
+        print "No message\n";
+        return 0;
+    }
 
 
     my $found = 0;
@@ -1428,7 +764,7 @@ sub matchMessageHeader
     {
         next if ($found);
 
-        if (    ( $line =~ /^\Q$header\E:(.*)/ )
+        if (    ( $line =~ /^\Q$header\E:(.*)/i )
              && ( !$found ) )
         {
 
@@ -1567,3 +903,552 @@ sub getMessage
     return ($msg);
 }
 
+
+
+=begin doc
+
+  Populate our global dispatch table.
+
+=end doc
+
+=cut
+
+sub populateDispatch
+{
+    my %dispatch = (
+
+        #
+        #  Folder changing
+        #
+        "folder" => {
+                      sub => \&do_folder_change,
+                      arg => 1,
+        },
+
+        #
+        #  Diagnostics.
+        #
+        "dump" => { sub => \&do_dump, },
+
+        #
+        #  header searching.
+        #
+        "to" => {
+                  sub => \&do_header_search,
+                  arg => 1,
+        },
+        "from" => {
+                    sub => \&do_header_search,
+                    arg => 1,
+        },
+        "subject" => {
+                       sub => \&do_header_search,
+                       arg => 1,
+        },
+        "bcc" => {
+                   sub => \&do_header_search,
+                   arg => 1,
+        },
+
+        #
+        #  Body searching
+        #
+        "body" => {
+                    sub => sub {\&do_body_search},
+                    arg => 1,
+        },
+
+        #
+        #  Status searching
+        #
+        "status" => {
+                      sub => \&do_status_search,
+                      arg => 1,
+        },
+        "mark" => {
+                    sub => \&do_status_change,
+                    arg => 1,
+        },
+
+        #
+        #  Manipulation actions.
+        #
+        "copy" => {
+                    sub => \&do_message_copy,
+                    arg => 1,
+        },
+
+        "delete" => { sub => \&do_delete, },
+
+        "exec" => {
+                    sub => \&do_exec,
+                    arg => 1,
+        },
+
+        "execonce" => {
+                        sub => \&do_exec_once,
+                        arg => 1,
+        },
+
+        "move" => {
+                    sub => \&do_message_move,
+                    arg => 1,
+        },
+    );
+
+    return (%dispatch);
+}
+
+
+
+=begin doc
+
+  Handler:  Delete each selected message.
+
+=end doc
+
+=cut
+
+sub do_delete
+{
+    my ($cmd) = (@_);
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+    foreach my $id (@messages)
+    {
+        $CONFIG{ 'verbose' } && print "\t$id\n";
+        $imap->delete($id);
+    }
+
+    @messages = ();
+}
+
+
+
+=begin doc
+
+  Handler:  Execute the named program once for each selected message.
+
+=end doc
+
+=cut
+
+sub do_exec
+{
+    my ( $cmd, $argument ) = (@_);
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+    foreach my $id (@messages)
+    {
+        $CONFIG{ 'verbose' } && print "\t$id\n";
+        my $msg = getMessage( $imap, $id );
+
+        if ($msg)
+        {
+            my ( $fh, $filename ) = tempfile();
+
+            foreach my $m (@$msg)
+            {
+                print $fh $m;
+            }
+            close($fh);
+
+            system("cat $filename | $argument");
+            unlink($filename);
+        }
+    }
+}
+
+
+=begin doc
+
+  Handler:  Execute the named program once if there are seleected messages.
+
+=end doc
+
+=cut
+
+sub do_exec_once
+{
+    my ( $cmd, $argument ) = (@_);
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+    system($argument );
+}
+
+
+
+=begin doc
+
+  Handler:  Change the status of a message.  ("new" vs. "old").
+
+=end doc
+
+=cut
+
+sub do_status_change
+{
+    my ( $cmd, $argument ) = (@_);
+
+
+    #
+    #  No option if there are no messages.
+    #
+    my $count = scalar(@messages);
+    return if ( !$count );
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+
+    if (    ( $argument =~ /^new$/i )
+         || ( $argument =~ /^read$/i ) )
+    {
+        $CONFIG{ 'verbose' } && print "Marking messages as read\n";
+        foreach my $id (@messages)
+        {
+            $CONFIG{ 'verbose' } && print "\t:$id\n";
+            $imap->_process_cmd(
+                                 cmd     => [STORE => qq[$id +FLAGS (\\Seen)]],
+                                 final   => sub    {1},
+                                 process => sub    { },
+            );
+        }
+    }
+    elsif (    ( $argument =~ /^unread$/i )
+            || ( $argument =~ /^old$/i ) )
+    {
+        $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
+        foreach my $id (@messages)
+        {
+            $CONFIG{ 'verbose' } && print "Msg: $id\n";
+            $imap->_process_cmd(
+                               cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
+                               final   => sub {1},
+                               process => sub { },
+            );
+        }
+    }
+    else
+    {
+        print "WARNING:  Ignoring unknown status type '$argument'\n";
+    }
+}
+
+
+=begin doc
+
+  Handler:  Search for message by status ("read"/"unread" vs "new"/"old").
+
+=end doc
+
+=cut
+
+sub do_status_search
+{
+    my ( $cmd, $argument ) = (@_);
+
+    if (    ( $argument =~ /^new$/i )
+         || ( $argument =~ /^unread$/i ) )
+    {
+        $CONFIG{ 'verbose' } && print "Finding unread messages\n";
+        @messages = findUnread();
+        my $c = scalar(@messages);
+        $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
+    }
+    elsif (    ( $argument =~ /^old$/i )
+            || ( $argument =~ /^read$/i ) )
+    {
+        $CONFIG{ 'verbose' } && print "Finding old messages\n";
+        @messages = findRead();
+        my $c = scalar(@messages);
+        $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
+    }
+    else
+    {
+        print "WARNING: Ignoring unknown status type '$argument'\n";
+    }
+}
+
+
+=begin doc
+
+  Handler:  Copy all selected messages to a new folder.
+
+=end doc
+
+=cut
+
+sub do_message_copy
+{
+    my ( $cmd, $argument ) = (@_);
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+    $CONFIG{ 'verbose' } && print "Copying messages to folder: '$argument'\n";
+
+    foreach my $id (@messages)
+    {
+        $CONFIG{ 'verbose' } && print "\t$id\n";
+        $imap->copy( $id, $argument );
+    }
+}
+
+
+=begin doc
+
+  Handler:  Move all selected messages to the named folder.
+
+=end doc
+
+=cut
+
+sub do_message_move
+{
+    my ( $cmd, $argument ) = (@_);
+
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+    $CONFIG{ 'verbose' } && print "Moving messages to folder: '$argument'\n";
+
+    foreach my $id (@messages)
+    {
+        print "\t$id\n";
+        if ( $imap->copy( $id, $argument ) )
+        {
+            $imap->delete($id);
+        }
+    }
+
+}
+
+
+=begin doc
+
+ Handler:  Dump messaes to the console.
+
+=end doc
+
+=cut
+
+sub do_dump
+{
+    my ($command) = (@_);
+
+    #
+    #  No option if there are no messages.
+    #
+    return if ( !scalar(@messages) );
+
+    #
+    #  Dry run?  Stop here.
+    #
+    return if ( $CONFIG{ 'dry-run' } );
+
+
+    #
+    #  Dump details of the message
+    #
+    my $to      = '';
+    my $from    = '';
+    my $subject = '';
+
+    foreach my $id (@messages)
+    {
+        my $msg = getMessage( $imap, $id );
+
+        if ($msg)
+        {
+            foreach my $line (@$msg)
+            {
+                $subject = $1 if ( $line =~ /^Subject: (.*)/i );
+                $from    = $1 if ( $line =~ /^From: (.*)/i );
+                $to      = $1 if ( $line =~ /^To: (.*)/i );
+            }
+
+            print <<EOF;
+[$id]
+	To: $to
+	From: $from
+	Subject: $subject
+EOF
+        }
+    }
+
+}
+
+
+=begin doc
+
+  Handler:  Search for a given value in a header.
+
+=end doc
+
+=cut
+
+sub do_header_search
+{
+    my ( $header, $arg ) = (@_);
+
+    $CONFIG{ 'verbose' }
+      && print "Searching header '$header' for matches with '$arg'\n";
+
+    #
+    #  The header.
+    #
+    my $invert = 0;
+    if ( $header =~ /^\!(.*)$/ )
+    {
+        $invert = 1;
+        $header = $1;
+    }
+
+    $CONFIG{ 'verbose' } && $invert && print "[inverted match]\n";
+
+    my @selected = ();
+
+
+    foreach my $id (@messages)
+    {
+        my $msg = getMessage( $imap, $id );
+
+        if ( matchMessageHeader( $msg, $header, $arg, $invert ) )
+        {
+            push( @selected, $id );
+        }
+    }
+
+    @messages = @selected;
+}
+
+
+=begin doc
+
+  Handler:  Search for a value in the body of the message.
+
+=end doc
+
+=cut
+
+sub do_body_search
+{
+    my ( $command, $value ) = (@_);
+
+
+
+    #
+    #  The header.
+    #
+    my $invert = 0;
+    if ( $command =~ /^\!(.*)$/ )
+    {
+        $invert  = 1;
+        $command = $1;
+    }
+
+    my @selected = ();
+
+
+    foreach my $id (@messages)
+    {
+        my $msg = getMessage( $imap, $id );
+
+
+        if ( matchMessageHeader( $msg, $value, $invert ) )
+        {
+            push( @selected, $id );
+        }
+    }
+
+    @messages = @selected;
+}
+
+
+=begin doc
+
+  Handler: Change folder.
+
+=end doc
+
+=cut
+
+sub do_folder_change
+{
+    my ( $command, $argument ) = (@_);
+
+    $CONFIG{ 'verbose' } && print "Changing to folder: '$argument'\n";
+
+
+    my $count = $imap->select($argument);
+    if ( !defined $count )
+    {
+        print "\tSelecting folder '$argument' failed\n";
+        print "\tThe folder is probably empty\n";
+        exit;
+    }
+
+    $original = $count;
+
+    #
+    # Show message count
+    #
+    $CONFIG{ 'verbose' } && print "\tFound $count messages\n";
+    @messages = ();
+    foreach my $id ( 1 .. $count )
+    {
+        push( @messages, $id );
+    }
+
+}
