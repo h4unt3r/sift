@@ -671,6 +671,8 @@ sub processRule
                     $ref->{ 'sub' }->($orig);
                 }
             }
+
+            print "Command done - Selected message count: " . scalar(@messages) . "\n";
         }
         else
         {
@@ -1058,12 +1060,11 @@ sub do_delete
     #
     return if ( !scalar(@messages) );
 
+    $CONFIG{'verbose'} && print "Deleting messages:\n";
 
     #
-    #  Dry run?  Stop here.
+    #  Do the deletion.
     #
-    return if ( $CONFIG{ 'dry-run' } );
-
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
@@ -1093,11 +1094,11 @@ sub do_exec
     return if ( !scalar(@messages) );
 
 
-    #
-    #  Dry run?  Stop here.
-    #
-    return if ( $CONFIG{ 'dry-run' } );
+    $CONFIG{'verbose'} && print "Executing '$argument' for each message.\n";
 
+    #
+    #  Run the command with each message on STDIN
+    #
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
@@ -1137,12 +1138,10 @@ sub do_exec_once
     #
     return if ( !scalar(@messages) );
 
-
     #
-    #  Dry run?  Stop here.
+    #  Run it
     #
-    return if ( $CONFIG{ 'dry-run' } );
-
+    $CONFIG{'verbose'} && print "Executing '$argument' once\n";
     system($argument );
 }
 
@@ -1167,13 +1166,9 @@ sub do_status_change
     my $count = scalar(@messages);
     return if ( !$count );
 
-
     #
-    #  Dry run?  Stop here.
+    #  Process
     #
-    return if ( $CONFIG{ 'dry-run' } );
-
-
     if (    ( $argument =~ /^new$/i )
          || ( $argument =~ /^read$/i ) )
     {
@@ -1226,16 +1221,12 @@ sub do_status_search
     {
         $CONFIG{ 'verbose' } && print "Finding unread messages\n";
         @messages = findUnread();
-        my $c = scalar(@messages);
-        $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
     }
     elsif (    ( $argument =~ /^old$/i )
             || ( $argument =~ /^read$/i ) )
     {
         $CONFIG{ 'verbose' } && print "Finding old messages\n";
         @messages = findRead();
-        my $c = scalar(@messages);
-        $CONFIG{ 'verbose' } && print "\tFound $c messages\n";
     }
     else
     {
@@ -1256,13 +1247,6 @@ sub do_message_copy
 {
     my ( $cmd, $argument ) = (@_);
 
-
-    #
-    #  Dry run?  Stop here.
-    #
-    return if ( $CONFIG{ 'dry-run' } );
-
-
     #
     #  No option if there are no messages.
     #
@@ -1270,6 +1254,9 @@ sub do_message_copy
 
     $CONFIG{ 'verbose' } && print "Copying messages to folder: '$argument'\n";
 
+    #
+    #  Copy
+    #
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
@@ -1290,12 +1277,6 @@ sub do_message_move
 {
     my ( $cmd, $argument ) = (@_);
 
-
-    #
-    #  Dry run?  Stop here.
-    #
-    return if ( $CONFIG{ 'dry-run' } );
-
     #
     #  No option if there are no messages.
     #
@@ -1303,6 +1284,9 @@ sub do_message_move
 
     $CONFIG{ 'verbose' } && print "Moving messages to folder: '$argument'\n";
 
+    #
+    #  Copy + Delete == Move.
+    #
     foreach my $id (@messages)
     {
         print "\t$id\n";
@@ -1333,21 +1317,15 @@ sub do_dump
     return if ( !scalar(@messages) );
 
     #
-    #  Dry run?  Stop here.
-    #
-    return if ( $CONFIG{ 'dry-run' } );
-
-
-    #
     #  Dump details of the message
     #
-    my $to      = '';
-    my $from    = '';
-    my $subject = '';
-
     foreach my $id (@messages)
     {
         my $msg = getMessage( $imap, $id );
+
+        my $to      = '';
+        my $from    = '';
+        my $subject = '';
 
         if ($msg)
         {
@@ -1400,6 +1378,9 @@ sub do_header_search
     my @selected = ();
 
 
+    #
+    #  Read each message and record if it matches.
+    #
     foreach my $id (@messages)
     {
         my $msg = getMessage( $imap, $id );
@@ -1425,8 +1406,6 @@ sub do_header_search
 sub do_body_search
 {
     my ( $command, $value ) = (@_);
-
-
 
     #
     #  The header.
@@ -1492,9 +1471,8 @@ sub do_folder_change
 
 
     #
-    # Show message count
+    # Store the selected messages.
     #
-    $CONFIG{ 'verbose' } && print "\tFound $count messages\n";
     @messages = ();
     foreach my $id ( 1 .. $count )
     {
