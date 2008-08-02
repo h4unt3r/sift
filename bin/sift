@@ -404,7 +404,7 @@ sub findLoginField
 {
     my ( $field, $file ) = (@_);
 
-    if ( ! -e $file )
+    if ( !-e $file )
     {
         print "The file does not exist: $file\n";
         exit;
