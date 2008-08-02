@@ -154,11 +154,6 @@ my %DISPATCH;
 
 
 #
-#  Global IMAP handle
-#
-my $imap;
-
-#
 #  Global selected messages
 #
 my @messages;
@@ -179,6 +174,13 @@ parseCommandLineArguments();
 
 
 #
+#  Populate dispatch table.
+#
+%DISPATCH = populateDispatch();
+
+
+
+#
 #  Early login?
 #
 if ( $CONFIG{ 'server' } && $CONFIG{ 'username' } && $CONFIG{ 'password' } )
@@ -191,22 +193,16 @@ if ( $CONFIG{ 'server' } && $CONFIG{ 'username' } && $CONFIG{ 'password' } )
     $ssl = 1 if ( $CONFIG{ 'server' } =~ /imap\.gmail\.com/i );
 
     # login
-    $imap = login( $CONFIG{ 'server' },
-                   $CONFIG{ 'username' },
-                   $CONFIG{ 'password' }, $ssl );
+    login( $CONFIG{ 'server' },
+           $CONFIG{ 'username' },
+           $CONFIG{ 'password' }, $ssl );
 
 }
 else
 {
-    $imap = undef;
+    $CONFIG{ 'imap' } = undef;
 }
 
-
-
-#
-#  Populate
-#
-%DISPATCH = populateDispatch();
 
 
 #
@@ -222,7 +218,7 @@ if ( $CONFIG{ 'execute' } )
 {
 
     # If we've logged in OK then we can run the snippet.
-    if ( defined $imap )
+    if ( defined $CONFIG{ 'imap' } )
     {
 
         # run the "script"
@@ -235,7 +231,7 @@ if ( $CONFIG{ 'execute' } )
     }
 
     # logout
-    $imap->quit() if ( defined($imap) );
+    $CONFIG{ 'imap' }->quit() if ( defined( $CONFIG{ 'imap' } ) );
 
     exit;
 }
@@ -252,7 +248,7 @@ foreach my $file (@ARGV)
     #  If we've not been given login details then we need to find
     # them in the script file.  Use them to login.
     #
-    if ( !defined($imap) )
+    if ( !defined( $CONFIG{ 'imap' } ) )
     {
 
         #
@@ -260,13 +256,23 @@ foreach my $file (@ARGV)
         #
         #  Ideally these will come from the file, to allow them to
         # override the command line.
+        #
         #  If they aren't in the file then we'll use the command
         # line version(s) as a fall-back.
         #
-        my $username = findUsername($file) || $CONFIG{ 'username' } || undef;
-        my $password = findPassword($file) || $CONFIG{ 'password' } || undef;
-        my $server   = findServer($file)   || $CONFIG{ 'server' }   || undef;
-        my $ssl      = $CONFIG{ 'ssl' }    || 0;
+        my $username =
+             findLoginField( "username", $file )
+          || $CONFIG{ 'username' }
+          || undef;
+        my $password =
+             findLoginField( "password", $file )
+          || $CONFIG{ 'password' }
+          || undef;
+        my $server =
+             findLoginField( "server", $file )
+          || $CONFIG{ 'server' }
+          || undef;
+        my $ssl = $CONFIG{ 'ssl' } || 0;
 
         if ( !defined($username) )
         {
@@ -287,30 +293,33 @@ foreach my $file (@ARGV)
         }
 
         #
-        #  GMail requires the use of SSL.
+        #  GMail requires the use of SSL, also any servername with
+        # imaps in the name.
         #
-        $ssl = 1 if ( $server =~ /imap\.gmail\.com/i );
+        $ssl = 1
+          if (    ( $server =~ /imap\.gmail\.com/i )
+               || ( $server =~ /imaps/i ) );
 
         #
         #  Login
         #
-        $imap = login( $server, $username, $password, $ssl );
+        login( $server, $username, $password, $ssl );
     }
 
     #
     #  Run the file.
     #
-    processRules($file);
+    processRuleFile($file);
 
     #
     #  Logout.
     #
-    $imap->quit();
+    $CONFIG{ 'imap' }->quit();
 
     #
     #  Reset so that we can reconnect properly
     #
-    $imap = undef;
+    $CONFIG{ 'imap' } = undef;
 }
 
 
@@ -389,55 +398,6 @@ sub parseCommandLineArguments
 
 =begin doc
 
-  Find the username from the given configuration script / file.
-
-=end doc
-
-=cut
-
-sub findUsername
-{
-    my ($file) = (@_);
-
-    return ( findLoginField( "username", $file ) );
-}
-
-
-=begin doc
-
-  Find the password from the given configuration file / script.
-
-=end doc
-
-=cut
-
-sub findPassword
-{
-    my ($file) = (@_);
-
-    return ( findLoginField( "password", $file ) );
-}
-
-
-=begin doc
-
-  Find the server from the given configuration file / script.
-
-=end doc
-
-=cut
-
-sub findServer
-{
-    my ($file) = (@_);
-
-    return ( findLoginField( "server", $file ) );
-}
-
-
-
-=begin doc
-
   Find username / password details from our configuration file.
 
 =end doc
@@ -492,25 +452,23 @@ sub login
     #
     #  Connect
     #
-    my $imap;
-
     if ($ssl)
     {
-        $imap = Net::IMAP::Simple::SSL->new($server)
+        $CONFIG{ 'imap' } = Net::IMAP::Simple::SSL->new($server)
           or die "Unable to connect to IMAP server: '$server'.\n";
     }
     else
     {
-        $imap = Net::IMAP::Simple->new($server)
+        $CONFIG{ 'imap' } = Net::IMAP::Simple->new($server)
           or die "Unable to connect to IMAP server: '$server'.\n";
     }
 
     #
     # Login
     #
-    if ( !$imap->login( $user, $pass ) )
+    if ( !$CONFIG{ 'imap' }->login( $user, $pass ) )
     {
-        print "IMAP Login failed :" . $imap->errstr . "\n";
+        print "IMAP Login failed :" . $CONFIG{ 'imap' }->errstr . "\n";
         print "\nCredentials were\n";
         print "\tserver: $server\n";
         print "\tuser  : $user\n";
@@ -521,9 +479,8 @@ sub login
     #
     #  Save the current folder
     #
-    $CONFIG{ 'folder' } = $imap->current_box();
+    $CONFIG{ 'folder' } = $CONFIG{ 'imap' }->current_box();
 
-    return ($imap);
 }
 
 
@@ -537,7 +494,7 @@ sub login
 
 =cut
 
-sub processRules
+sub processRuleFile
 {
     my ($file) = (@_);
 
@@ -611,7 +568,7 @@ sub processRule
         #
         $CONFIG{ 'verbose' }
           && print "Processing '$token' current folder: "
-          . $imap->current_box() . "\n";
+          . $CONFIG{ 'imap' }->current_box() . "\n";
 
         #
         #  Get the key
@@ -695,7 +652,7 @@ sub processRule
 
 sub findUnread
 {
-    my $sh = $imap->{ sock };
+    my $sh = $CONFIG{ 'imap' }->{ sock };
     print $sh "A$original SEARCH unseen\r\n";
 
     my @matches;
@@ -733,7 +690,7 @@ sub findUnread
 
 sub findRead
 {
-    my $sh = $imap->{ sock };
+    my $sh = $CONFIG{ 'imap' }->{ sock };
     print $sh "A$original SEARCH seen\r\n";
 
     my @matches;
@@ -883,7 +840,7 @@ sub matchMessageBody
 
 sub getMessage
 {
-    my ( $imap, $id ) = (@_);
+    my ($id) = (@_);
 
     #
     #  Message we will return
@@ -896,11 +853,17 @@ sub getMessage
     my $file;
 
     #
+    #  Strip characters out of the folder name.
+    #
+    my $base = $CONFIG{ 'folder' } . ".id";
+    $base =~ s/[ \\\/]/_/g;
+
+    #
     #  Is it cached?
     #
     if ( $CONFIG{ 'cache' } )
     {
-        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{ 'folder' } . ".$id";
+        $file = $CONFIG{ 'cache' } . "/" . $base;
 
         if ( -e $file )
         {
@@ -923,11 +886,11 @@ sub getMessage
     #
     #  Fetch via IMAP
     #
-    $msg = $imap->get($id);
+    $msg = $CONFIG{ 'imap' }->get($id);
 
     if ( $CONFIG{ 'cache' } )
     {
-        $file = $CONFIG{ 'cache' } . "/" . $CONFIG{ 'folder' } . ".$id";
+        $file = $CONFIG{ 'cache' } . "/" . $base;
 
         # output
         $CONFIG{ 'verbose' }
@@ -1070,7 +1033,7 @@ sub do_delete
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
-        $imap->delete($id);
+        $CONFIG{ 'imap' }->delete($id);
     }
 
     @messages = ();
@@ -1104,7 +1067,7 @@ sub do_exec
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
-        my $msg = getMessage( $imap, $id );
+        my $msg = getMessage($id);
 
         if ($msg)
         {
@@ -1178,10 +1141,10 @@ sub do_status_change
         foreach my $id (@messages)
         {
             $CONFIG{ 'verbose' } && print "\t$id\n";
-            $imap->_process_cmd(
-                                 cmd     => [STORE => qq[$id +FLAGS (\\Seen)]],
-                                 final   => sub    {1},
-                                 process => sub    { },
+            $CONFIG{ 'imap' }->_process_cmd(
+                                      cmd => [STORE => qq[$id +FLAGS (\\Seen)]],
+                                      final   => sub {1},
+                                      process => sub { },
             );
         }
     }
@@ -1192,7 +1155,7 @@ sub do_status_change
         foreach my $id (@messages)
         {
             $CONFIG{ 'verbose' } && print "\t$id\n";
-            $imap->_process_cmd(
+            $CONFIG{ 'imap' }->_process_cmd(
                                cmd => [STORE => qq[$id -FLAGS.SILENT (\\Seen)]],
                                final   => sub {1},
                                process => sub { },
@@ -1262,7 +1225,7 @@ sub do_message_copy
     foreach my $id (@messages)
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
-        $imap->copy( $id, $argument );
+        $CONFIG{ 'imap' }->copy( $id, $argument );
     }
 }
 
@@ -1292,9 +1255,9 @@ sub do_message_move
     foreach my $id (@messages)
     {
         print "\t$id\n";
-        if ( $imap->copy( $id, $argument ) )
+        if ( $CONFIG{ 'imap' }->copy( $id, $argument ) )
         {
-            $imap->delete($id);
+            $CONFIG{ 'imap' }->delete($id);
         }
     }
 
@@ -1323,7 +1286,7 @@ sub do_dump
     #
     foreach my $id (@messages)
     {
-        my $msg = getMessage( $imap, $id );
+        my $msg = getMessage($id);
 
         my $to      = '';
         my $from    = '';
@@ -1385,7 +1348,7 @@ sub do_header_search
     #
     foreach my $id (@messages)
     {
-        my $msg = getMessage( $imap, $id );
+        my $msg = getMessage($id);
 
         if ( matchMessageHeader( $msg, $header, $arg, $invert ) )
         {
@@ -1424,7 +1387,7 @@ sub do_body_search
 
     foreach my $id (@messages)
     {
-        my $msg = getMessage( $imap, $id );
+        my $msg = getMessage($id);
 
 
         if ( matchMessageHeader( $msg, $value, $invert ) )
@@ -1452,12 +1415,13 @@ sub do_folder_change
     $CONFIG{ 'verbose' } && print "Changing to folder: '$argument'\n";
 
 
-    my $count = $imap->select($argument);
+    my $count = $CONFIG{ 'imap' }->select($argument);
     if ( !defined $count )
     {
         print "\tSelecting folder '$argument' failed\n";
         print "\tThe folder is probably empty\n";
-        print "\tError message returned was: " . $imap->errstr . "\n";
+        print "\tError message returned was: "
+          . $CONFIG{ 'imap' }->errstr . "\n";
         exit;
     }
 
