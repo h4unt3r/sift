@@ -738,6 +738,7 @@ sub matchMessageHeader
 
     foreach my $line (@$message)
     {
+
         #
         # we've found the message body - so a header match can't
         # happen now.
@@ -806,6 +807,7 @@ sub matchMessageBody
 
     foreach my $line (@$message)
     {
+
         # strip newline/linefeed.
         $line =~ s/[\r\n]//g if ( defined($line) );
 
@@ -1302,10 +1304,10 @@ sub do_dump
             print "[Message: $id]\n";
             foreach my $line (@$msg)
             {
-                if ( ( $line =~ /^To:/ ) ||
-                     ( $line =~ /^From:/ ) ||
-                     ( $line =~ /^Date:/ ) ||
-                     ( $line =~ /^Subject:/ ) )
+                if (    ( $line =~ /^To:/ )
+                     || ( $line =~ /^From:/ )
+                     || ( $line =~ /^Date:/ )
+                     || ( $line =~ /^Subject:/ ) )
                 {
                     $line =~ s/[\r\n]//g;
                     print "\t$line\n";
