@@ -142,7 +142,7 @@ use Pod::Usage;
 
 
 #
-#  Command line / configuration file arguments.
+#  Command line argument holder.
 #
 my %CONFIG;
 
@@ -197,10 +197,6 @@ if ( $CONFIG{ 'server' } && $CONFIG{ 'username' } && $CONFIG{ 'password' } )
            $CONFIG{ 'username' },
            $CONFIG{ 'password' }, $ssl );
 
-}
-else
-{
-    $CONFIG{ 'imap' } = undef;
 }
 
 
@@ -604,7 +600,7 @@ sub processRule
 
                     if ( $CONFIG{ 'dry-run' } )
                     {
-                        print "dry-run: Calling handler $orig('$argument');\n";
+                        print "dry-run: Calling handler: $orig('$argument');\n";
                     }
                     else
                     {
@@ -621,7 +617,7 @@ sub processRule
             {
                 if ( $CONFIG{ 'dry-run' } )
                 {
-                    print "dry-run: Calling handler $orig();\n";
+                    print "dry-run: Calling handler: $orig();\n";
                 }
                 else
                 {
@@ -736,18 +732,17 @@ sub matchMessageHeader
     $invert = 0 if ( !defined($invert) );
 
     # no message? no match.
-    if ( ( !$message ) || ( !@$message ) )
-    {
-        print "No message\n";
-        return 0;
-    }
-
+    return 0 if ( ( !$message ) || ( !@$message ) );
 
     my $found = 0;
 
     foreach my $line (@$message)
     {
-        next if ($found);
+        #
+        # we've found the message body - so a header match can't
+        # happen now.
+        #
+        return 0 if ($found);
 
         if (    ( $line =~ /^\Q$header\E:(.*)/i )
              && ( !$found ) )
@@ -807,18 +802,17 @@ sub matchMessageBody
     return 0 if ( ( !$message ) || ( !@$message ) );
 
 
-    my $body = 0;
+    my $inBody = 0;
 
     foreach my $line (@$message)
     {
-
         # strip newline/linefeed.
         $line =~ s/[\r\n]//g if ( defined($line) );
 
         # end of the header?
-        $body = 1 if ( $line =~ /^$/ );
+        $inBody = 1 if ( $line =~ /^$/ );
 
-        if ( ($body) && ( $line =~ /$term/i ) )
+        if ( ($inBody) && ( $line =~ /$term/i ) )
         {
             $CONFIG{ 'verbose' } && print "Body line '$line' matches '$term'\n";
 
@@ -832,7 +826,8 @@ sub matchMessageBody
 
 =begin doc
 
-  Get a message from the imap store - and cache it.
+  Get a message from the IMAP store - cache it to disk, so that subsequent
+ requests for the same message may be processed more quickly.
 
 =end doc
 
@@ -884,10 +879,15 @@ sub getMessage
 
 
     #
-    #  Fetch via IMAP
+    #  Fetch via IMAP - either the cache is disabled, or the message
+    # is not present in it.
     #
     $msg = $CONFIG{ 'imap' }->get($id);
 
+    #
+    #  Update the cache with the retrieved message if we're supposed
+    # to.
+    #
     if ( $CONFIG{ 'cache' } )
     {
         $file = $CONFIG{ 'cache' } . "/" . $base;
@@ -978,7 +978,7 @@ sub populateDispatch
         },
 
         #
-        #  Manipulation actions.
+        #  Moving / Copying / Deleting.
         #
         "copy" => {
                     sub => \&do_message_copy,
@@ -987,6 +987,14 @@ sub populateDispatch
 
         "delete" => { sub => \&do_delete, },
 
+        "move" => {
+                    sub => \&do_message_move,
+                    arg => 1,
+        },
+
+        #
+        # Command execution
+        #
         "exec" => {
                     sub => \&do_exec,
                     arg => 1,
@@ -997,10 +1005,6 @@ sub populateDispatch
                         arg => 1,
         },
 
-        "move" => {
-                    sub => \&do_message_move,
-                    arg => 1,
-        },
     );
 
     return (%dispatch);
@@ -1036,6 +1040,10 @@ sub do_delete
         $CONFIG{ 'imap' }->delete($id);
     }
 
+    #
+    #  Since we've deleted each selected message there are
+    # now none selected.
+    #
     @messages = ();
 }
 
@@ -1288,25 +1296,21 @@ sub do_dump
     {
         my $msg = getMessage($id);
 
-        my $to      = '';
-        my $from    = '';
-        my $subject = '';
 
         if ($msg)
         {
+            print "[Message: $id]\n";
             foreach my $line (@$msg)
             {
-                $subject = $1 if ( $line =~ /^Subject: (.*)/i );
-                $from    = $1 if ( $line =~ /^From: (.*)/i );
-                $to      = $1 if ( $line =~ /^To: (.*)/i );
+                if ( ( $line =~ /^To:/ ) ||
+                     ( $line =~ /^From:/ ) ||
+                     ( $line =~ /^Date:/ ) ||
+                     ( $line =~ /^Subject:/ ) )
+                {
+                    $line =~ s/[\r\n]//g;
+                    print "\t$line\n";
+                }
             }
-
-            print <<EOF;
-[$id]
-	To: $to
-	From: $from
-	Subject: $subject
-EOF
         }
     }
 
@@ -1418,8 +1422,7 @@ sub do_folder_change
     my $count = $CONFIG{ 'imap' }->select($argument);
     if ( !defined $count )
     {
-        print "\tSelecting folder '$argument' failed\n";
-        print "\tThe folder is probably empty\n";
+        print "Selecting folder '$argument' failed\n";
         print "\tError message returned was: "
           . $CONFIG{ 'imap' }->errstr . "\n";
         exit;
