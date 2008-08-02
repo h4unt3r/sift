@@ -322,7 +322,7 @@ exit;
 
 
 
-=begin
+=begin doc
 
   Parse the command line looking for arguments.
 
@@ -674,7 +674,7 @@ sub processRule
 
             print "Command done - Selected message count: "
               . scalar(@messages) . "\n"
-              if ( $CONFIG{'verbose'} && ! $CONFIG{ 'dry-run' } );
+              if ( $CONFIG{ 'verbose' } && !$CONFIG{ 'dry-run' } );
         }
         else
         {
