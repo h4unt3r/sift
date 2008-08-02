@@ -1,3 +1,12 @@
+sift (0.5-1) unstable; urgency=low
+
+  * New release
+    - The caching has been re-written and tested.
+    - The operation of the code has been improved.
+    - The new rules "cc"/"!cc", and "bcc"/"!bcc" have been added.
+
+ -- Steve Kemp <steve@steve.org.uk>  Fri, 1 Aug 2008 21:00:12 +0000
+
 sift (0.4-1) unstable; urgency=low
 
   * New release
