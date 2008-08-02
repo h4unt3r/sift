@@ -23,7 +23,6 @@ sift - A scriptable IMAP utility program.
 
 =cut
 
-
 =head1 ABOUT
 
   sift is an IMAP client utility which allows you to manipulate
@@ -68,7 +67,6 @@ sift - A scriptable IMAP utility program.
 
 =cut
 
-
 =head1 SAMPLE USAGE
 
   As many options may be specified directly upon the command line,
@@ -105,8 +103,6 @@ folder:[Google#Mail]/Spam delete
 
 =cut
 
-
-
 =head1 AUTHOR
 
  Steve
@@ -126,11 +122,8 @@ The LICENSE file contains the full text of the license.
 
 =cut
 
-
-
 use strict;
 use warnings;
-
 use strict;
 use warnings;
 use File::Temp qw/ tempfile tempdir /;
@@ -139,19 +132,15 @@ use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
 use Pod::Usage;
 
-
-
 #
 #  Command line argument holder.
 #
 my %CONFIG;
 
-
 #
 #  Dispatch table.
 #
 my %DISPATCH;
-
 
 #
 #  Global selected messages
@@ -164,21 +153,15 @@ my $original;
 #
 $CONFIG{ 'version' } = 'UNRELEASED';
 
-
-
 #
 #  Parse command line arguments.
 #
 parseCommandLineArguments();
 
-
-
 #
 #  Populate dispatch table.
 #
 %DISPATCH = populateDispatch();
-
-
 
 #
 #  Early login?
@@ -196,16 +179,12 @@ if ( $CONFIG{ 'server' } && $CONFIG{ 'username' } && $CONFIG{ 'password' } )
     login( $CONFIG{ 'server' },
            $CONFIG{ 'username' },
            $CONFIG{ 'password' }, $ssl );
-
 }
-
-
 
 #
 #  Create cache directory unless we shouldn't.
 #
 $CONFIG{ 'cache' } = tempdir( CLEANUP => 1 ) unless ( $CONFIG{ 'no-cache' } );
-
 
 #
 #  Are we running directly?
@@ -219,7 +198,6 @@ if ( $CONFIG{ 'execute' } )
 
         # run the "script"
         processRule( $CONFIG{ 'execute' } );
-
     }
     else
     {
@@ -228,11 +206,8 @@ if ( $CONFIG{ 'execute' } )
 
     # logout
     $CONFIG{ 'imap' }->quit() if ( defined( $CONFIG{ 'imap' } ) );
-
     exit;
 }
-
-
 
 #
 #  Are there files specified upon the command line?
@@ -256,20 +231,16 @@ foreach my $file (@ARGV)
         #  If they aren't in the file then we'll use the command
         # line version(s) as a fall-back.
         #
-        my $username =
-             findLoginField( "username", $file )
-          || $CONFIG{ 'username' }
-          || undef;
-        my $password =
-             findLoginField( "password", $file )
-          || $CONFIG{ 'password' }
-          || undef;
-        my $server =
-             findLoginField( "server", $file )
-          || $CONFIG{ 'server' }
-          || undef;
+        my $username = findLoginField( "username", $file ) ||
+          $CONFIG{ 'username' } ||
+          undef;
+        my $password = findLoginField( "password", $file ) ||
+          $CONFIG{ 'password' } ||
+          undef;
+        my $server = findLoginField( "server", $file ) ||
+          $CONFIG{ 'server' } ||
+          undef;
         my $ssl = $CONFIG{ 'ssl' } || 0;
-
         if ( !defined($username) )
         {
             print "Failed to find username in the file $file\n";
@@ -293,8 +264,8 @@ foreach my $file (@ARGV)
         # imaps in the name.
         #
         $ssl = 1
-          if (    ( $server =~ /imap\.gmail\.com/i )
-               || ( $server =~ /imaps/i ) );
+          if ( ( $server =~ /imap\.gmail\.com/i ) ||
+               ( $server =~ /imaps/i ) );
 
         #
         #  Login
@@ -318,14 +289,10 @@ foreach my $file (@ARGV)
     $CONFIG{ 'imap' } = undef;
 }
 
-
-
 #
 #  All done
 #
 exit;
-
-
 
 =begin doc
 
@@ -335,13 +302,11 @@ exit;
 
 =cut
 
-
 sub parseCommandLineArguments
 {
     my $HELP    = 0;
     my $MANUAL  = 0;
     my $VERSION = 0;
-
 
     #
     #  Parse options.
@@ -354,7 +319,6 @@ sub parseCommandLineArguments
             "manual",  \$MANUAL,
             "version", \$VERSION,
             "verbose", \$CONFIG{ 'verbose' },
-
 
             # login details
             "user=s",   \$CONFIG{ 'username' },
@@ -372,25 +336,18 @@ sub parseCommandLineArguments
 
             # use SSL?
             "ssl", \$CONFIG{ 'ssl' },
-
-        )
-      )
+        ) )
     {
         exit;
     }
-
     pod2usage(1) if $HELP;
     pod2usage( -verbose => 2 ) if $MANUAL;
-
     if ($VERSION)
     {
         print "sift v$CONFIG{'version'}\n";
         exit;
     }
-
 }
-
-
 
 =begin doc
 
@@ -403,37 +360,29 @@ sub parseCommandLineArguments
 sub findLoginField
 {
     my ( $field, $file ) = (@_);
-
     if ( !-e $file )
     {
         print "The file does not exist: $file\n";
         exit;
     }
-    open( INPUT, "<", $file )
-      or die "failed to read $file - $!";
-
+    open( INPUT, "<", $file ) or
+      die "failed to read $file - $!";
     my $result = undef;
-
     while ( my $line = <INPUT> )
     {
         next if ( !$line );
         chomp($line);
-
-        if (    ( $line =~ /^\Q$field\E:(.*)/i )
-             && ( !defined($result) ) )
+        if ( ( $line =~ /^\Q$field\E:(.*)/i ) &&
+             ( !defined($result) ) )
         {
             $result = $1;
         }
     }
     close(INPUT);
-
     $result =~ s/^\s+// if ( defined($result) );
     $result =~ s/\s+$// if ( defined($result) );
-
     return ($result);
 }
-
-
 
 =begin doc
 
@@ -447,7 +396,6 @@ sub findLoginField
 sub login
 {
     my ( $server, $user, $pass, $ssl ) = (@_);
-
     $CONFIG{ 'verbose' } && print "Logging in: $user\@$server [SSL: $ssl]\n";
 
     #
@@ -455,13 +403,13 @@ sub login
     #
     if ($ssl)
     {
-        $CONFIG{ 'imap' } = Net::IMAP::Simple::SSL->new($server)
-          or die "Unable to connect to IMAP server: '$server'.\n";
+        $CONFIG{ 'imap' } = Net::IMAP::Simple::SSL->new($server) or
+          die "Unable to connect to IMAP server: '$server'.\n";
     }
     else
     {
-        $CONFIG{ 'imap' } = Net::IMAP::Simple->new($server)
-          or die "Unable to connect to IMAP server: '$server'.\n";
+        $CONFIG{ 'imap' } = Net::IMAP::Simple->new($server) or
+          die "Unable to connect to IMAP server: '$server'.\n";
     }
 
     #
@@ -481,10 +429,7 @@ sub login
     #  Save the current folder
     #
     $CONFIG{ 'folder' } = $CONFIG{ 'imap' }->current_box();
-
 }
-
-
 
 =begin doc
 
@@ -498,10 +443,8 @@ sub login
 sub processRuleFile
 {
     my ($file) = (@_);
-
-    open( INP, "<", $file )
-      or die "failed to read : $file - $!";
-
+    open( INP, "<", $file ) or
+      die "failed to read : $file - $!";
     while ( my $line = <INP> )
     {
 
@@ -515,10 +458,8 @@ sub processRuleFile
         # ok we have a valid rule line, process it.
         processRule($line);
     }
-
     close(INP);
 }
-
 
 =begin doc
 
@@ -555,21 +496,21 @@ sub processRule
         #
         #  No messages selected then we're done?
         #
-        if (    ( !scalar(@messages) )
-             && ( $command !~ /folder/i )
-             && ( !$CONFIG{ 'dry-run' } ) )
+        if ( ( !scalar(@messages) ) &&
+             ( $command !~ /folder/i ) &&
+             ( !$CONFIG{ 'dry-run' } ) )
         {
-            $CONFIG{ 'verbose' }
-              && print "Ignoring rule: $command - No messages are selected\n";
+            $CONFIG{ 'verbose' } &&
+              print "Ignoring rule: $command - No messages are selected\n";
             next;
         }
 
         #
         #  Debugging
         #
-        $CONFIG{ 'verbose' }
-          && print "Processing '$token' current folder: "
-          . $CONFIG{ 'imap' }->current_box() . "\n";
+        $CONFIG{ 'verbose' } &&
+          print "Processing '$token' current folder: " .
+          $CONFIG{ 'imap' }->current_box() . "\n";
 
         #
         #  Get the key
@@ -602,14 +543,12 @@ sub processRule
                     #
                     $argument =~ s/([^#])#([^#])/$1 $2/g if ($argument);
                     $argument =~ s/##/#/g if ($argument);
-
                     if ( $CONFIG{ 'dry-run' } )
                     {
                         print "dry-run: Calling handler: $orig('$argument');\n";
                     }
                     else
                     {
-
                         $ref->{ 'sub' }->( $orig, $argument );
                     }
                 }
@@ -629,9 +568,8 @@ sub processRule
                     $ref->{ 'sub' }->($orig);
                 }
             }
-
-            print "Command done - Selected message count: "
-              . scalar(@messages) . "\n"
+            print "Command done - Selected message count: " .
+              scalar(@messages) . "\n"
               if ( $CONFIG{ 'verbose' } && !$CONFIG{ 'dry-run' } );
         }
         else
@@ -640,7 +578,6 @@ sub processRule
         }
     }
 }
-
 
 =begin doc
 
@@ -655,16 +592,13 @@ sub findUnread
 {
     my $sh = $CONFIG{ 'imap' }->{ sock };
     print $sh "A$original SEARCH unseen\r\n";
-
     my @matches;
     while ( my $resp = $sh->getline() )
     {
         last if ( $resp =~ /OK/ );
-
         if ( $resp =~ /SEARCH / )
         {
             if ($resp) {chomp($resp);}
-
             foreach my $tok ( split( / /, $resp ) )
             {
                 if ( $tok =~ /^([0-9]+)/ )
@@ -677,8 +611,6 @@ sub findUnread
     }
     return (@matches);
 }
-
-
 
 =begin doc
 
@@ -693,14 +625,11 @@ sub findRead
 {
     my $sh = $CONFIG{ 'imap' }->{ sock };
     print $sh "A$original SEARCH seen\r\n";
-
     my @matches;
     while ( my $resp = $sh->getline() )
     {
         last if ( $resp =~ /OK/ );
-
         if ($resp) {chomp($resp);}
-
         if ( $resp =~ /SEARCH / )
         {
             foreach my $tok ( split( / /, $resp ) )
@@ -709,16 +638,12 @@ sub findRead
                 {
                     $tok = $1;
                 }
-
                 push( @matches, $tok ) if ( $tok =~ /^([0-9]+)$/ );
             }
         }
     }
-
     return (@matches);
 }
-
-
 
 =begin doc
 
@@ -738,9 +663,7 @@ sub matchMessageHeader
 
     # no message? no match.
     return 0 if ( ( !$message ) || ( !@$message ) );
-
     my $found = 0;
-
     foreach my $line (@$message)
     {
 
@@ -749,9 +672,8 @@ sub matchMessageHeader
         # happen now.
         #
         return 0 if ($found);
-
-        if (    ( $line =~ /^\Q$header\E:(.*)/i )
-             && ( !$found ) )
+        if ( ( $line =~ /^\Q$header\E:(.*)/i ) &&
+             ( !$found ) )
         {
 
             #
@@ -764,7 +686,6 @@ sub matchMessageHeader
             #
             $val =~ s/[\r\n]//g;
             $CONFIG{ 'verbose' } && print "Found header '$header' - '$val'\n";
-
             if ($invert)
             {
                 if ( $val !~ /$value/i )
@@ -783,11 +704,8 @@ sub matchMessageHeader
             }
         }
     }
-
     return 0;
 }
-
-
 
 =begin doc
 
@@ -806,10 +724,7 @@ sub matchMessageBody
 
     # no message? no match.
     return 0 if ( ( !$message ) || ( !@$message ) );
-
-
     my $inBody = 0;
-
     foreach my $line (@$message)
     {
 
@@ -818,18 +733,14 @@ sub matchMessageBody
 
         # end of the header?
         $inBody = 1 if ( $line =~ /^$/ );
-
         if ( ($inBody) && ( $line =~ /$term/i ) )
         {
             $CONFIG{ 'verbose' } && print "Body line '$line' matches '$term'\n";
-
             return 1;
         }
     }
     return 0;
 }
-
-
 
 =begin doc
 
@@ -866,24 +777,20 @@ sub getMessage
     if ( $CONFIG{ 'cache' } )
     {
         $file = $CONFIG{ 'cache' } . "/" . $base;
-
         if ( -e $file )
         {
-            $CONFIG{ 'verbose' }
-              && print "Fetching message ID:$id from: $file\n";
-
-            open( CACHE, "<", $file )
-              or die "Failed to read from cache file '$file' - $!";
+            $CONFIG{ 'verbose' } &&
+              print "Fetching message ID:$id from: $file\n";
+            open( CACHE, "<", $file ) or
+              die "Failed to read from cache file '$file' - $!";
             foreach my $line (<CACHE>)
             {
                 push( @$msg, $line );
             }
             close(CACHE);
-
             return ($msg);
         }
     }
-
 
     #
     #  Fetch via IMAP - either the cache is disabled, or the message
@@ -900,24 +807,20 @@ sub getMessage
         $file = $CONFIG{ 'cache' } . "/" . $base;
 
         # output
-        $CONFIG{ 'verbose' }
-          && print "Saving message ID:$id to $file\n";
+        $CONFIG{ 'verbose' } &&
+          print "Saving message ID:$id to $file\n";
 
         # write
-        open( CACHE, ">", $file )
-          or die "Failed to write to cache file '$file' - $!";
+        open( CACHE, ">", $file ) or
+          die "Failed to write to cache file '$file' - $!";
         foreach my $line (@$msg)
         {
             print CACHE $line;
         }
         close(CACHE);
-
     }
-
     return ($msg);
 }
-
-
 
 =begin doc
 
@@ -934,10 +837,9 @@ sub populateDispatch
         #
         #  Folder changing
         #
-        "folder" => {
-                      sub => \&do_folder_change,
+        "folder" => { sub => \&do_folder_change,
                       arg => 1,
-        },
+                    },
 
         #
         #  Diagnostics.
@@ -947,77 +849,60 @@ sub populateDispatch
         #
         #  header searching.
         #
-        "to" => {
-                  sub => \&do_header_search,
+        "to" => { sub => \&do_header_search,
                   arg => 1,
-        },
-        "from" => {
-                    sub => \&do_header_search,
+                },
+        "from" => { sub => \&do_header_search,
                     arg => 1,
-        },
-        "subject" => {
-                       sub => \&do_header_search,
+                  },
+        "subject" => { sub => \&do_header_search,
                        arg => 1,
-        },
-        "bcc" => {
-                   sub => \&do_header_search,
+                     },
+        "bcc" => { sub => \&do_header_search,
                    arg => 1,
-        },
+                 },
 
         #
         #  Body searching
         #
-        "body" => {
-                    sub => sub {\&do_body_search},
+        "body" => { sub => sub {\&do_body_search},
                     arg => 1,
-        },
+                  },
 
         #
         #  Status searching
         #
-        "status" => {
-                      sub => \&do_status_search,
+        "status" => { sub => \&do_status_search,
                       arg => 1,
-        },
-        "mark" => {
-                    sub => \&do_status_change,
+                    },
+        "mark" => { sub => \&do_status_change,
                     arg => 1,
-        },
+                  },
 
         #
         #  Moving / Copying / Deleting.
         #
-        "copy" => {
-                    sub => \&do_message_copy,
+        "copy" => { sub => \&do_message_copy,
                     arg => 1,
-        },
-
+                  },
         "delete" => { sub => \&do_delete, },
-
-        "move" => {
+        "move"   => {
                     sub => \&do_message_move,
                     arg => 1,
-        },
+                  },
 
         #
         # Command execution
         #
-        "exec" => {
-                    sub => \&do_exec,
+        "exec" => { sub => \&do_exec,
                     arg => 1,
-        },
-
-        "execonce" => {
-                        sub => \&do_exec_once,
+                  },
+        "execonce" => { sub => \&do_exec_once,
                         arg => 1,
-        },
-
-    );
-
+                      },
+                   );
     return (%dispatch);
 }
-
-
 
 =begin doc
 
@@ -1035,7 +920,6 @@ sub do_delete
     #  No option if there are no messages.
     #
     return if ( !scalar(@messages) );
-
     $CONFIG{ 'verbose' } && print "Deleting messages:\n";
 
     #
@@ -1054,8 +938,6 @@ sub do_delete
     @messages = ();
 }
 
-
-
 =begin doc
 
   Handler:  Execute the named program once for each selected message.
@@ -1072,8 +954,6 @@ sub do_exec
     #  No option if there are no messages.
     #
     return if ( !scalar(@messages) );
-
-
     $CONFIG{ 'verbose' } && print "Executing '$argument' for each message.\n";
 
     #
@@ -1083,23 +963,19 @@ sub do_exec
     {
         $CONFIG{ 'verbose' } && print "\t$id\n";
         my $msg = getMessage($id);
-
         if ($msg)
         {
             my ( $fh, $filename ) = tempfile();
-
             foreach my $m (@$msg)
             {
                 print $fh $m;
             }
             close($fh);
-
             system("cat $filename | $argument");
             unlink($filename);
         }
     }
 }
-
 
 =begin doc
 
@@ -1125,8 +1001,6 @@ sub do_exec_once
     system($argument );
 }
 
-
-
 =begin doc
 
   Handler:  Change the status of a message.  ("new" vs. "old").
@@ -1139,7 +1013,6 @@ sub do_status_change
 {
     my ( $cmd, $argument ) = (@_);
 
-
     #
     #  No option if there are no messages.
     #
@@ -1149,8 +1022,8 @@ sub do_status_change
     #
     #  Process
     #
-    if (    ( $argument =~ /^new$/i )
-         || ( $argument =~ /^read$/i ) )
+    if ( ( $argument =~ /^new$/i ) ||
+         ( $argument =~ /^read$/i ) )
     {
         $CONFIG{ 'verbose' } && print "Marking messages as read\n";
         foreach my $id (@messages)
@@ -1163,8 +1036,8 @@ sub do_status_change
             );
         }
     }
-    elsif (    ( $argument =~ /^unread$/i )
-            || ( $argument =~ /^old$/i ) )
+    elsif ( ( $argument =~ /^unread$/i ) ||
+            ( $argument =~ /^old$/i ) )
     {
         $CONFIG{ 'verbose' } && print "Marking messages as unread\n";
         foreach my $id (@messages)
@@ -1183,7 +1056,6 @@ sub do_status_change
     }
 }
 
-
 =begin doc
 
   Handler:  Search for message by status ("read"/"unread" vs "new"/"old").
@@ -1195,15 +1067,14 @@ sub do_status_change
 sub do_status_search
 {
     my ( $cmd, $argument ) = (@_);
-
-    if (    ( $argument =~ /^new$/i )
-         || ( $argument =~ /^unread$/i ) )
+    if ( ( $argument =~ /^new$/i ) ||
+         ( $argument =~ /^unread$/i ) )
     {
         $CONFIG{ 'verbose' } && print "Finding unread messages\n";
         @messages = findUnread();
     }
-    elsif (    ( $argument =~ /^old$/i )
-            || ( $argument =~ /^read$/i ) )
+    elsif ( ( $argument =~ /^old$/i ) ||
+            ( $argument =~ /^read$/i ) )
     {
         $CONFIG{ 'verbose' } && print "Finding old messages\n";
         @messages = findRead();
@@ -1213,7 +1084,6 @@ sub do_status_search
         print "WARNING: Ignoring unknown status type '$argument'\n";
     }
 }
-
 
 =begin doc
 
@@ -1231,7 +1101,6 @@ sub do_message_copy
     #  No option if there are no messages.
     #
     return if ( !scalar(@messages) );
-
     $CONFIG{ 'verbose' } && print "Copying messages to folder: '$argument'\n";
 
     #
@@ -1243,7 +1112,6 @@ sub do_message_copy
         $CONFIG{ 'imap' }->copy( $id, $argument );
     }
 }
-
 
 =begin doc
 
@@ -1261,7 +1129,6 @@ sub do_message_move
     #  No option if there are no messages.
     #
     return if ( !scalar(@messages) );
-
     $CONFIG{ 'verbose' } && print "Moving messages to folder: '$argument'\n";
 
     #
@@ -1275,9 +1142,7 @@ sub do_message_move
             $CONFIG{ 'imap' }->delete($id);
         }
     }
-
 }
-
 
 =begin doc
 
@@ -1302,17 +1167,15 @@ sub do_dump
     foreach my $id (@messages)
     {
         my $msg = getMessage($id);
-
-
         if ($msg)
         {
             print "[Message: $id]\n";
             foreach my $line (@$msg)
             {
-                if (    ( $line =~ /^To:/ )
-                     || ( $line =~ /^From:/ )
-                     || ( $line =~ /^Date:/ )
-                     || ( $line =~ /^Subject:/ ) )
+                if ( ( $line =~ /^To:/ ) ||
+                     ( $line =~ /^From:/ ) ||
+                     ( $line =~ /^Date:/ ) ||
+                     ( $line =~ /^Subject:/ ) )
                 {
                     $line =~ s/[\r\n]//g;
                     print "\t$line\n";
@@ -1320,9 +1183,7 @@ sub do_dump
             }
         }
     }
-
 }
-
 
 =begin doc
 
@@ -1335,9 +1196,8 @@ sub do_dump
 sub do_header_search
 {
     my ( $header, $arg ) = (@_);
-
-    $CONFIG{ 'verbose' }
-      && print "Searching header '$header' for matches with '$arg'\n";
+    $CONFIG{ 'verbose' } &&
+      print "Searching header '$header' for matches with '$arg'\n";
 
     #
     #  The header.
@@ -1348,11 +1208,8 @@ sub do_header_search
         $invert = 1;
         $header = $1;
     }
-
     $CONFIG{ 'verbose' } && $invert && print "[inverted match]\n";
-
     my @selected = ();
-
 
     #
     #  Read each message and record if it matches.
@@ -1360,16 +1217,13 @@ sub do_header_search
     foreach my $id (@messages)
     {
         my $msg = getMessage($id);
-
         if ( matchMessageHeader( $msg, $header, $arg, $invert ) )
         {
             push( @selected, $id );
         }
     }
-
     @messages = @selected;
 }
-
 
 =begin doc
 
@@ -1392,24 +1246,17 @@ sub do_body_search
         $invert  = 1;
         $command = $1;
     }
-
     my @selected = ();
-
-
     foreach my $id (@messages)
     {
         my $msg = getMessage($id);
-
-
         if ( matchMessageHeader( $msg, $value, $invert ) )
         {
             push( @selected, $id );
         }
     }
-
     @messages = @selected;
 }
-
 
 =begin doc
 
@@ -1422,16 +1269,13 @@ sub do_body_search
 sub do_folder_change
 {
     my ( $command, $argument ) = (@_);
-
     $CONFIG{ 'verbose' } && print "Changing to folder: '$argument'\n";
-
-
     my $count = $CONFIG{ 'imap' }->select($argument);
     if ( !defined $count )
     {
         print "Selecting folder '$argument' failed\n";
-        print "\tError message returned was: "
-          . $CONFIG{ 'imap' }->errstr . "\n";
+        print "\tError message returned was: " . $CONFIG{ 'imap' }->errstr .
+          "\n";
         exit;
     }
 
@@ -1445,7 +1289,6 @@ sub do_folder_change
     #
     $CONFIG{ 'folder' } = $argument;
 
-
     #
     # Store the selected messages.
     #
@@ -1454,5 +1297,4 @@ sub do_folder_change
     {
         push( @messages, $id );
     }
-
 }
