@@ -20,6 +20,7 @@ sift - A scriptable IMAP utility program.
    --execute      Specify a rule to execute directly.
    --no-cache     Don't cache messages.
    --ssl          Force the use of SSL.
+   --verbose      Display more information.
 
 =cut
 
