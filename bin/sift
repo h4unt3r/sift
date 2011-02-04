@@ -866,7 +866,7 @@ sub populateDispatch
         #
         #  Body searching
         #
-        "body" => { sub => sub {\&do_body_search},
+        "body" => { sub => \&do_body_search,
                     arg => 1,
                   },
 
