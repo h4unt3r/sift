@@ -1251,13 +1251,14 @@ sub do_body_search
     foreach my $id (@messages)
     {
         my $msg = getMessage($id);
-        if ( matchMessageHeader( $msg, $value, $invert ) )
+        if ( matchMessageBody( $msg, $value, $invert ) )
         {
             push( @selected, $id );
         }
     }
     @messages = @selected;
 }
+
 
 =begin doc
 
