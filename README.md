@@ -90,21 +90,21 @@ subject.
 Reduce the working set to those messages which do not contain 'foo'
 in the subject.
 
-+ from:bar@bar.com
-Reduce the working set to those messags which contain 'bar@bar.com'
++ from:whom
+Reduce the working set to those messags which contain 'whom'
 in the sender address.
 
-+ !from:bar@bar.com
++ !from:whom
 Reduce the working set to those messags which do not contain
-'bar@bar.com' in the sender address.
+'whom' in the sender address.
 
-+ to:bar@bar.com
-Reduce the working set to those messags which contain 'bar@bar.com'
++ to:whom
+Reduce the working set to those messags which contain 'whom'
 in the recipient adress.
 
-+ !to:bar@bar.com
++ !to:whom
 Reduce the working set to those messags which do not contain
-'bar@bar.com' in the recipient address.
+'whom' in the recipient address.
 
 + status:[new|old]
 Select only messags with the given state.  "new" means unread, and
@@ -145,9 +145,8 @@ Feedback?
 The original author no longer maintains this software, please contact
 h4unt3r through github, send issues, comments, etc.
 
-Comments welcome to the author <steve [at] steve [dot] org [dot] uk>.
-
-Go check out Steve's website here: <https://github.com/skx/>
-Or check out his github here: <http://www.steve.org.uk/>
+Comments welcome to the author.  
+Go check out Steve's website here: <https://github.com/skx/>  
+Or check out his github here: <http://www.steve.org.uk/>  
 
 --h4unt3r
