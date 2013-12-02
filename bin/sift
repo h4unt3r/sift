@@ -1182,6 +1182,7 @@ sub do_dump
                     print "\t$line\n";
                 }
             }
+			print "\tMessage Flags: ('".join( "', '", $CONFIG{ 'imap' }->msg_flags($id))."')\n";
         }
     }
 }
