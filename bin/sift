@@ -769,7 +769,7 @@ sub getMessage
     #
     #  Strip characters out of the folder name.
     #
-    my $base = $CONFIG{ 'folder' } . ".id";
+    my $base = $CONFIG{ 'folder' } . ".$id";
     $base =~ s/[ \\\/]/_/g;
 
     #
