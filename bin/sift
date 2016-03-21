@@ -798,9 +798,14 @@ sub getMessage
 
     #
     #  Fetch via IMAP - either the cache is disabled, or the message
-    # is not present in it.
+    # is not present in it. Remember whether message was already seen.
     #
+
+    my $seen = $CONFIG{ 'imap' }->seen($id);
     $msg = $CONFIG{ 'imap' }->get($id);
+    if ( !$seen ) { 
+        $CONFIG{ 'imap' }->unsee($id);
+    }
 
     #
     #  Update the cache with the retrieved message if we're supposed
