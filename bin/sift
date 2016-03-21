@@ -128,10 +128,13 @@ use warnings;
 use strict;
 use warnings;
 use File::Temp qw/ tempfile tempdir /;
+use File::Basename;
+use File::Path qw/ make_path /;
 use Getopt::Long;
 use Net::IMAP::Simple;
 use Net::IMAP::Simple::SSL;
 use Pod::Usage;
+use Encode qw /decode encode /;
 
 #
 #  Command line argument holder.
