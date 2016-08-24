@@ -1,0 +1,33 @@
+#
+#  A configuration / rulefile for the sift IMAP utility.
+#
+
+#
+# Login details for the googlemail IMAP account.
+#
+server:   <server>
+username: <user>
+password: <pass>
+
+#
+#  Now we have a rule.
+#
+#  This rule is in five parts:
+#
+#  folder:livejournal    -> This changes to the livejournal folder
+#                           and selects all messages.
+#
+#  status:new            -> This changes the selection from all messages
+#                           to only those that are unread.
+#
+#  subject:velvet        -> This reduces the selected messages to only those
+#                           which contain the word "velvet" in their title.
+#
+#  mark:read             -> If any messages are selected they are marked "read".
+#
+#  exec:/usr/local/bin/f -> If there are any messages selected each one is
+#                           piped as STDIN to the script "f".  (Five messages
+#                           = five executes.)
+#
+#
+folder:inbox status:new from:(info.greenpeace.de|info.sixt.de|newsletter.akad.srv2.de|readwrite.com|news.ing-diba.de|mail.xing.com|t.shoop.de|change.org|nedm.asus.com|email.opentable.com|trello.com|linuxfoundation.org|messe.de|inmotionhosting.com|yelp.com|mail.elitepartner.de|jibjab.com|newsletter.lieferando.de|linkedin.com|firebrandtraining.de|zeitungenundzeitschriften.com|sixt.info|newsletter.sixt.info|servicenews.messe.de|easyjet.de|pixum.de|newsletter.tonerpreise.de|newsletter.tonerpreis.de|ecmguide.de|Targa.de|pizza.de|boekhandelbroekhuis.nl|socialsf.com|elitepartner.de|notebooksbilliger.de|buch.de|easyJet.com|stereomood.com|tuneup.de|zapata.de|christianpresents.us|produktnews.buch.de|mail-nutriform-deutschland.com|mail.vresp.com|mail.vresp.com|newsletter.berlitz.de|stereomood.com|lieferando.de|twitter.com|aliexpress.com|news.nh-hotels.com|mailing.pixum.com|business-infoletter.de|geosmile.de|firebrandtraining.nl|e-mail.microsoft.com|info.docker.com|avaaz.org|e-mail.microsoft.com|pizza.de|corinthiahotels.com|vesterling.com|booklooker.de|Apple.com|news.airberlin.com|nativsound.com|job.de|edm.gearbest.com|edm.gearbest.org|symform.com|jfrog.com|news.intant.de) move:Trash
